@@ -23,6 +23,7 @@
       --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
     * { box-sizing: border-box; margin: 0; }
+    [hidden] { display: none !important; }
     html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
     body { min-height: 100vh; font: 400 14px/20px var(--sans); letter-spacing: -0.28px; color: var(--ink); background: var(--canvas-soft); }
     button, input, select { font: inherit; letter-spacing: inherit; }
@@ -90,7 +91,7 @@
     .card-head a { color: var(--mute); text-decoration: none; }
     .card-head a:hover { color: var(--link); }
 
-    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
     .stat { padding: 10px 12px; border-radius: 6px; background: var(--canvas-soft); box-shadow: var(--ring); }
     .stat b { display: block; font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
     .stat span { font-size: 12px; color: var(--mute); }
@@ -110,6 +111,23 @@
     .members .none { color: var(--mute); padding: 8px 0; border-top: 1px solid var(--hairline); }
     .card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
+    .views { display: flex; gap: 4px; border-bottom: 1px solid var(--hairline); }
+    .views a { position: relative; padding: 10px 12px; color: var(--body); text-decoration: none; font-weight: 500; border-radius: 6px 6px 0 0; }
+    .views a:hover { color: var(--ink); background: var(--canvas-soft-2); }
+    .views a[aria-selected=true] { color: var(--ink); }
+    .views a[aria-selected=true]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; background: var(--ink); border-radius: 2px; }
+    .table { width: 100%; border-collapse: collapse; background: var(--canvas); border-radius: 8px; overflow: hidden; box-shadow: var(--ring), var(--elev-2); }
+    .table th, .table td { padding: 10px 14px; text-align: left; border-top: 1px solid var(--hairline); vertical-align: middle; }
+    .table th { border-top: 0; font: 400 12px/16px var(--mono); color: var(--mute); background: var(--canvas-soft); }
+    .table td.path { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+    .table td.when { font-family: var(--mono); font-size: 12px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .table td.acts { white-space: nowrap; text-align: right; }
+    .table td.acts .btn + .btn { margin-left: 6px; }
+    .ev { display: inline-block; padding: 2px 8px; border-radius: 9999px; font: 500 11px/16px var(--mono); background: var(--canvas-soft-2); box-shadow: var(--ring); color: var(--body); }
+    .ev.del { color: var(--bad); background: var(--bad-soft); } .ev.new { color: #0761d1; background: var(--link-soft); }
+    .filters { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2fr); gap: 8px; margin-bottom: 12px; }
+    .table-wrap { overflow-x: auto; }
+    .more { margin-top: 12px; text-align: center; color: var(--mute); font-size: 13px; }
     .loose { display: flex; flex-wrap: wrap; gap: 8px; }
     .loose .item { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px 0 14px; border-radius: 8px; background: var(--canvas); box-shadow: var(--ring); }
 
@@ -180,14 +198,37 @@
       </div>
       <button class="btn" id="btn-new" type="button" hidden>+ Novo time</button>
     </section>
-    <section id="teams-section">
-      <div class="section-title">Times <span class="mono" id="teams-count"></span></div>
-      <div class="grid" id="teams"><div class="skeleton"></div><div class="skeleton"></div></div>
-    </section>
-    <section id="loose-section" hidden>
-      <div class="section-title">Pastas sem time <span class="mono">transforme em time para atribuir pessoas</span></div>
-      <div class="loose" id="loose"></div>
-    </section>
+
+    <nav class="views" role="tablist" aria-label="Seções">
+      <a href="#times" role="tab" data-view-tab="times" aria-selected="true">Times</a>
+      <a href="#lixeira" role="tab" data-view-tab="lixeira" aria-selected="false">Lixeira</a>
+      <a href="#atividade" role="tab" data-view-tab="atividade" aria-selected="false">Atividade</a>
+    </nav>
+
+    <div data-view="times">
+      <section id="teams-section">
+        <div class="section-title">Times <span class="mono" id="teams-count"></span></div>
+        <div class="grid" id="teams"><div class="skeleton"></div><div class="skeleton"></div></div>
+      </section>
+      <section id="loose-section" hidden style="margin-top:32px">
+        <div class="section-title">Pastas sem time <span class="mono">transforme em time para atribuir pessoas</span></div>
+        <div class="loose" id="loose"></div>
+      </section>
+    </div>
+
+    <div data-view="lixeira" hidden>
+      <div class="section-title">Lixeira <span class="mono" id="trash-note"></span></div>
+      <div id="trash"></div>
+    </div>
+
+    <div data-view="atividade" hidden>
+      <div class="filters">
+        <select class="full" id="act-team" aria-label="Filtrar por time"><option value="">Todos os times</option></select>
+        <select class="full" id="act-user" aria-label="Filtrar por pessoa"><option value="">Todas as pessoas</option></select>
+        <input type="text" id="act-q" placeholder="Buscar arquivo…" aria-label="Buscar arquivo">
+      </div>
+      <div id="activity"></div>
+    </div>
   </main>
 
   <!-- Novo / editar time -->
@@ -336,7 +377,11 @@
     }
 
     async function load() {
-      const [users, root] = await Promise.all([api("/users"), listDir("")]);
+      const [users, root, v] = await Promise.all([
+        api("/users"), listDir(""),
+        fetch("/_visitas.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+      ]);
+      const visitas = (v && v.paginas) || {};
       state.users = users;
       const dirs = (root.items || []).filter((i) => i.isDir && !/^[_.]/.test(i.name));
 
@@ -353,7 +398,8 @@
         const stats = await measure("/" + d.name);
         const scope = "/" + d.name;
         const members = users.filter((u) => !u.perm.admin && (normScope(u.scope) === scope || normScope(u.scope).startsWith(scope + "/")));
-        return { team: { slug: d.name, nome: typeof cfg.nome === "string" && cfg.nome ? cfg.nome : d.name, cota_mb: Number(cfg.cota_mb) > 0 ? Number(cfg.cota_mb) : null, members, ...stats } };
+        const views = Object.entries(visitas).reduce((n, [uri, c]) => n + (uri.startsWith(scope + "/") ? c : 0), 0);
+        return { team: { slug: d.name, views, nome: typeof cfg.nome === "string" && cfg.nome ? cfg.nome : d.name, cota_mb: Number(cfg.cota_mb) > 0 ? Number(cfg.cota_mb) : null, members, ...stats } };
       }));
 
       state.teams = scanned.filter((s) => s.team).map((s) => s.team).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -381,7 +427,7 @@
       card.append(head);
 
       const stats = el("div", "stats");
-      for (const [v, label] of [[t.members.length, t.members.length === 1 ? "pessoa" : "pessoas"], [t.pages, t.pages === 1 ? "página" : "páginas"], [fmtBytes(t.size) + (t.truncated ? "+" : ""), "em uso"]]) {
+      for (const [v, label] of [[t.members.length, t.members.length === 1 ? "pessoa" : "pessoas"], [t.pages, t.pages === 1 ? "página" : "páginas"], [fmtBytes(t.size) + (t.truncated ? "+" : ""), "em uso"], [t.views.toLocaleString("pt-BR"), "visitas · 30d"]]) {
         const s = el("div", "stat");
         s.append(el("b", null, String(v)), el("span", null, label));
         stats.append(s);
@@ -465,6 +511,13 @@
       if (create) await api(`/resources/${encodeURIComponent(slug)}/`, { method: "POST" }).catch(() => {});
       const cfg = { nome, ...(cota_mb ? { cota_mb } : {}) };
       await writeText(`/${slug}/${TEAM_FILE}`, JSON.stringify(cfg, null, 2) + "\n");
+      // time novo ganha uma página inicial pronta (nunca sobrescreve)
+      if (create) {
+        try {
+          const modelo = await (await fetch("/admin/times/modelo-time.html", { cache: "no-cache" })).text();
+          await api(`/resources/${encodeURIComponent(slug)}/index.html?override=false`, { method: "POST", body: modelo });
+        } catch { /* já existe um index.html ou o modelo não carregou */ }
+      }
     }
 
     async function moveUser(u, scope, label) {
@@ -629,5 +682,6 @@
       notice(status === "expirada" ? "Sua sessão expirou." : "Entre no Admin para gerenciar times.");
     }
   </script>
+  <script src="/admin/times/times-tabs.js"></script>
 </body>
 </html>

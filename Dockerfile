@@ -38,11 +38,16 @@ COPY conf/nginx/default.conf   /etc/nginx/conf.d/default.conf
 COPY conf/nginx/snippets/      /etc/nginx/snippets/
 COPY conf/branding/            /branding/
 COPY conf/times/               /usr/share/static-pages/times/
+# o NGINX (workers como "nginx") lê o auditoria.log em /database
+RUN chmod 755 /database
 # CRLF (checkout no Windows) quebra o bash: normaliza por garantia
 COPY conf/entrypoint.sh        /usr/local/bin/entrypoint.sh
 COPY conf/sp-autoria.sh        /usr/local/bin/sp-autoria
-RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /usr/local/bin/sp-autoria /etc/nginx/snippets/*.conf /etc/nginx/conf.d/default.conf \
- && chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/sp-autoria
+COPY conf/sp-lixeira.sh        /usr/local/bin/sp-lixeira
+COPY conf/sp-visitas.sh        /usr/local/bin/sp-visitas
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /usr/local/bin/sp-autoria /usr/local/bin/sp-lixeira \
+        /usr/local/bin/sp-visitas /etc/nginx/snippets/*.conf /etc/nginx/conf.d/default.conf \
+ && chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/sp-autoria /usr/local/bin/sp-lixeira /usr/local/bin/sp-visitas
 
 
 # ============================================================

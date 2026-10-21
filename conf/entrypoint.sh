@@ -125,15 +125,46 @@ log "Aplicando baseURL=$BASEURL, branding e cadastro desligado..."
     --signup=false \
     --shell "sh -c" >/dev/null
 
-# Hooks de autoria (coluna "Alterado por" no painel). Idempotente:
-# só adiciona o que ainda não está registrado.
-log "Registrando hooks de autoria..."
+# Hooks (idempotente: só adiciona o que ainda não está registrado)
+#   sp-autoria  -> coluna "Alterado por" + /database/auditoria.log
+#   sp-lixeira  -> copia para /srv/_lixeira antes de apagar
+log "Registrando hooks de autoria e lixeira..."
 HOOKS="$("${FB[@]}" cmds ls 2>/dev/null || true)"
-for evento in after_upload after_save after_rename after_delete after_copy; do
-    if ! printf '%s\n' "$HOOKS" | grep -q "$evento.*sp-autoria"; then
-        "${FB[@]}" cmds add "$evento" "sp-autoria" >/dev/null
+for par in after_upload:sp-autoria after_save:sp-autoria after_rename:sp-autoria \
+           after_delete:sp-autoria after_copy:sp-autoria before_delete:sp-lixeira; do
+    evento="${par%%:*}"; cmd="${par#*:}"
+    if ! printf '%s\n' "$HOOKS" | grep -q "$evento.*$cmd"; then
+        "${FB[@]}" cmds add "$evento" "$cmd" >/dev/null
     fi
 done
+
+# Lixeira: apaga lotes com mais de LIXEIRA_DIAS dias (1x por dia)
+LIXEIRA_DIAS="${LIXEIRA_DIAS:-30}"
+case "$LIXEIRA_DIAS" in ''|*[!0-9]*) LIXEIRA_DIAS=30 ;; esac
+mkdir -p /srv/_lixeira && chown nginx:nginx /srv/_lixeira
+(
+    while true; do
+        find /srv/_lixeira -mindepth 1 -maxdepth 1 -type d -mtime +"$LIXEIRA_DIAS" -exec rm -rf {} + 2>/dev/null
+        # lotes esvaziados por restaurações
+        find /srv/_lixeira -mindepth 1 -type d -empty -delete 2>/dev/null
+        # mantém no .registro só o que ainda está na lixeira
+        if [ -f /srv/_lixeira/.registro ]; then
+            TAB="$(printf '\t')"
+            while IFS="$TAB" read -r q u o l; do
+                [ -e "/srv$l" ] && printf '%s\t%s\t%s\t%s\n' "$q" "$u" "$o" "$l"
+            done < /srv/_lixeira/.registro > /srv/_lixeira/.registro.tmp
+            mv /srv/_lixeira/.registro.tmp /srv/_lixeira/.registro
+            chown nginx:nginx /srv/_lixeira/.registro
+        fi
+        sleep 86400
+    done
+) &
+log "Lixeira: itens ficam $LIXEIRA_DIAS dias."
+
+# Visitas: agrega o log do NGINX em /database/visitas.json (a cada 5 min)
+sp-visitas
+( while true; do sleep 300; sp-visitas; done ) &
+log "Contador de visitas ativo (últimos ${VISITAS_DIAS:-30} dias)."
 
 
 # ------------------------------------------------------------

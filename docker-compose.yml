@@ -34,6 +34,29 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Backup diário dos volumes em ./backups (somente leitura nos dados)
+  backup:
+    image: alpine:3.21
+    container_name: static-pages-backup
+    restart: unless-stopped
+    command: ["sh", "-c", "tr -d '\\r' < /backup.sh > /tmp/backup.sh && exec sh /tmp/backup.sh"]
+    environment:
+      TZ: ${BACKUP_TZ:-<-03>3}          # Brasília (sem horário de verão), sem tzdata
+      BACKUP_HORA: ${BACKUP_HORA:-3}
+      BACKUP_MANTER: ${BACKUP_MANTER:-7}
+      BACKUP_NA_SUBIDA: ${BACKUP_NA_SUBIDA:-true}
+    volumes:
+      - ./conf/backup.sh:/backup.sh:ro
+      - srv:/data/srv:ro
+      - db:/data/db:ro
+      - ./backups:/backups
+    network_mode: none
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "2"
+
 volumes:
   srv:
   db:

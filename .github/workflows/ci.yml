@@ -1,0 +1,74 @@
+name: CI
+
+# Builda a imagem, sobe o container e roda os testes E2E (pytest +
+# Playwright) a cada push e pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Valida scripts de shell
+        run: |
+          for f in conf/*.sh; do bash -n "$f" && echo "ok: $f"; done
+
+      - name: Cria .env de teste
+        run: |
+          cp .env.example .env
+          SENHA="ci-$(openssl rand -hex 12)"
+          sed -i "s/^FB_ADMIN_PASSWORD=.*/FB_ADMIN_PASSWORD=$SENHA/" .env
+          sed -i "s/^HTTP_BIND=.*/HTTP_BIND=127.0.0.1/" .env
+          echo "FB_ADMIN_PASSWORD=$SENHA" >> "$GITHUB_ENV"
+          echo "::add-mask::$SENHA"
+
+      - name: Valida compose
+        run: docker compose config -q
+
+      - name: Build e subida do app
+        run: docker compose up -d --build app
+
+      - name: Aguarda healthcheck
+        run: |
+          for i in $(seq 1 30); do
+            status=$(docker inspect -f '{{.State.Health.Status}}' static-pages 2>/dev/null || echo starting)
+            echo "status: $status"
+            [ "$status" = "healthy" ] && exit 0
+            sleep 3
+          done
+          docker logs static-pages
+          exit 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tests/requirements.txt
+
+      - name: Instala dependências dos testes
+        run: |
+          pip install -r tests/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Testes E2E
+        env:
+          BASE_URL: http://localhost:8080
+        run: python -m pytest tests -v -p no:cacheprovider
+
+      - name: Logs do container (em caso de falha)
+        if: failure()
+        run: docker logs static-pages
+
+      - name: Derruba o ambiente
+        if: always()
+        run: docker compose down -v

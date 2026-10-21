@@ -95,6 +95,7 @@
       font: 500 11px/16px var(--mono); color: var(--body); background: var(--canvas-soft-2); box-shadow: var(--ring);
     }
     .title { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -0.3px; overflow-wrap: anywhere; }
+    .views { margin-top: 6px; font: 400 12px/16px var(--mono); color: var(--mute); font-variant-numeric: tabular-nums; }
     .desc { margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--body); text-wrap: pretty; }
     .arrow { color: var(--mute); transition-property: transform, color; transition-duration: 150ms; transition-timing-function: ease-out; }
     .mark { color: var(--body); }
@@ -144,7 +145,7 @@
   </header>
 
   <section class="hero">
-    <h1>Tudo o que está no ar, num&nbsp;lugar&nbsp;só.</h1>
+    <h1>Tudo o que está no ar, num só&nbsp;lugar.</h1>
   </section>
 
   <main>
@@ -178,6 +179,7 @@
     const count = document.getElementById("count");
     const search = document.getElementById("search");
     let items = [];
+    let visits = {};   // uri -> visitas nos últimos 30 dias (/_visitas.json)
 
     const el = (tag, cls, text) => {
       const node = document.createElement(tag);
@@ -278,6 +280,8 @@
       }
       body.append(title);
       if (item.descricao) body.append(el("div", "desc", item.descricao));
+      const seen = item.href ? visits[item.href] || 0 : 0;
+      if (seen) body.append(el("div", "views", `${seen.toLocaleString("pt-BR")} ${seen === 1 ? "visita" : "visitas"} · 30 dias`));
 
       if (subs.length) {
         const ul = el("ul", "subs");
@@ -381,7 +385,11 @@
 
     async function main() {
       try {
-        const { dirs: top } = await listDir([]);
+        const [{ dirs: top }, v] = await Promise.all([
+          listDir([]),
+          fetch("/_visitas.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+        ]);
+        visits = (v && v.paginas) || {};
         const scanned = await Promise.all(top.map(async (d) => {
           const [node, team] = await Promise.all([scan([d.name]), loadTeam(d.name)]);
           return node ? { ...node, team } : null;

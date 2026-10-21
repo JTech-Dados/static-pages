@@ -35,6 +35,10 @@ evento="${TRIGGER:-?}"
 pasta="$(dirname "$alvo")"
 nome="$(basename "$alvo")"
 
+# mexer na lixeira não é atividade de conteúdo; restaurar (rename
+# saindo de lá) é registrado normalmente pelo destino
+case "$alvo" in /srv/_lixeira|/srv/_lixeira/*) exit 0 ;; esac
+
 # o próprio registro não entra no histórico
 case "$nome" in .autoria) exit 0 ;; esac
 
@@ -51,7 +55,8 @@ fi
 # rename: a origem também some da pasta antiga
 if [ "${TRIGGER:-}" = "after_rename" ] && [ -n "$destino" ] && [ -n "${FILE:-}" ]; then
     origem="$(dirname "$FILE")"
-    [ -d "$origem" ] && printf '%s\t%s\t%s\t%s\n' "$(basename "$FILE")" "$quem" "$quando" "renamed" >> "$origem/.autoria"
+    case "$origem" in /srv/_lixeira|/srv/_lixeira/*) origem="" ;; esac
+    [ -n "$origem" ] && [ -d "$origem" ] && printf '%s\t%s\t%s\t%s\n' "$(basename "$FILE")" "$quem" "$quando" "renamed" >> "$origem/.autoria"
 fi
 
 printf '%s\t%s\t%s\t%s\t%s\n' "$quando" "$quem" "$evento" "${FILE:-}" "$destino" >> /database/auditoria.log

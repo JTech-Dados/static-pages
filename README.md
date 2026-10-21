@@ -211,6 +211,62 @@ O File Browser não guarda autoria. Quem registra é um **hook** (`conf/sp-autor
 
 Arquivos enviados antes dos hooks existirem aparecem com "—". Membros não veem as colunas: eles ficam com "ocultar dotfiles" ligado e não podem ler nem apagar `.autoria` ou `.time.json`.
 
+## Lixeira
+
+Nada apagado no painel some de vez. Antes de cada exclusão, um hook (`conf/sp-lixeira.sh`, evento `before_delete`) copia o item para `/srv/_lixeira/<dia>/<lote>/<caminho>` e anota em `/srv/_lixeira/.registro` quem apagou e quando.
+
+- **Times → aba Lixeira:** botões **Restaurar** (volta ao caminho original, sem sobrescrever: se já existir, vira `nome(1)`) e **Apagar de vez**.
+- Itens com mais de `LIXEIRA_DIAS` (padrão 30) dias são removidos sozinhos.
+- `/_lixeira/` e `/_backup/` respondem 404 no site, e a home ignora pastas com `_`.
+
+## Atividade
+
+**Times → aba Atividade** mostra o histórico de `/database/auditoria.log` (enviou, editou, renomeou, apagou, restaurou), com filtros por time, pessoa e arquivo.
+
+O log é servido em `/admin/_auditoria` só para admins. O "porteiro" é o próprio File Browser: o NGINX faz um `auth_request` para `/admin/api/users`, que responde 200 só para admin. Membro recebe 403 e anônimo 401.
+
+## Visitas
+
+O NGINX registra só visitas reais a páginas (GET com 200, pastas ou `.html`, fora do `/admin` e das rotas `/_…`) em `/database/visitas.log`. A cada 5 minutos, `conf/sp-visitas.sh` agrega esse log em `/_visitas.json`.
+
+- **Home:** cada card mostra "N visitas · 30 dias".
+- **Times:** cada time mostra o total de visitas das suas páginas.
+- A janela é `VISITAS_DIAS` (padrão 30). O log guarda até 120 dias.
+
+## Modelo de página do time
+
+Ao criar um time pela tela, a pasta já ganha um `index.html` (`conf/times/modelo-time.html`). Ele mostra o nome do time, lido do `.time.json`, e lista sozinho as subpastas que têm página. Pode ser editado à vontade, e nunca é sobrescrito.
+
+## Backup
+
+O serviço `backup` do compose gera todo dia, às `BACKUP_HORA` (padrão 3h, horário de Brasília), um `backups/static-pages-AAAA-MM-DD_HHMM.tar.gz` com o site e o banco. Ele mantém os últimos `BACKUP_MANTER` (padrão 7) e lê os volumes **somente para leitura**.
+
+```bash
+docker compose logs backup          # ver os backups feitos
+```
+
+**Restaurar** (com o app parado):
+
+```bash
+docker compose stop app
+docker run --rm -v static-pages_srv:/data/srv -v static-pages_db:/data/db -v "$PWD/backups":/b alpine   sh -c "rm -rf /data/srv/* /data/srv/.[!.]* /data/db/* && tar -xzf /b/static-pages-AAAA-MM-DD_HHMM.tar.gz -C /data"
+docker compose start app
+```
+
+> O banco do File Browser é copiado com o serviço rodando. Para um backup 100% consistente, pare o app antes (`docker compose stop app`).
+
+## Testes
+
+Testes E2E em `tests/` (pytest + Playwright): rotas, headers, bloqueio de dotfiles, path traversal, permissões da auditoria, fluxo de times, membros, colunas, lixeira, atividade, home por time e visitas. Tudo que criam usa o prefixo `zz-` e é removido ao final, inclusive da lixeira. Dá para rodar contra o servidor real.
+
+```bash
+pip install -r tests/requirements.txt && python -m playwright install chromium
+python -m pytest tests -v                 # usa FB_ADMIN_PASSWORD do .env
+BROWSER_CHANNEL=msedge python -m pytest tests   # usa o Edge instalado
+```
+
+O **GitHub Actions** (`.github/workflows/ci.yml`) builda a imagem, sobe o container e roda a suíte a cada push.
+
 ## Boas práticas de conteúdo
 
 - Cada pasta precisa de um `index.html` para abrir em `/pasta/`. `Index.html` e `INDEX.HTML` também funcionam.
@@ -233,6 +289,7 @@ static-pages/
 │   └── times/                 # tela /admin/times + item de menu
 ├── content/                   # páginas iniciais (seed de /srv)
 ├── proxy/                     # Caddy opcional (desativado)
+├── tests/                     # testes E2E (pytest + Playwright)
 ├── docs/img/                  # imagens deste README
 └── divulgacao/                # scripts que geram banner, prints e carrossel
 ```

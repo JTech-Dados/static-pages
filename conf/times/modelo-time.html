@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Time</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+  <!--
+    Página inicial criada automaticamente pela tela de Times.
+    Edite à vontade: o nome vem do .time.json e a lista de páginas
+    é montada sozinha a partir das subpastas com index.html.
+  -->
+  <style>
+    :root {
+      --ink: #171717; --body: #4d4d4d; --mute: #888888; --hairline: #ebebeb;
+      --canvas: #ffffff; --canvas-soft: #fafafa; --canvas-soft-2: #f5f5f5; --link: #0070f3;
+      --ring: inset 0 0 0 1px #00000014;
+      --elev-2: 0 1px 1px #00000005, 0 2px 2px #0000000a;
+      --elev-4: 0 2px 2px #0000000a, 0 8px 16px -4px #0000000a;
+      --sans: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body { min-height: 100vh; font-family: var(--sans); color: var(--ink); background: var(--canvas-soft); }
+    header { height: 64px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--hairline); background: var(--canvas); }
+    header a { display: inline-flex; align-items: center; gap: 8px; color: var(--body); text-decoration: none; font-size: 14px; }
+    header a:hover { color: var(--ink); }
+    .hero { position: relative; overflow: hidden; padding: 72px 24px 40px; text-align: center; }
+    .hero::before {
+      content: ""; position: absolute; inset: -40% -10% -10%; z-index: -1; filter: blur(50px);
+      background: radial-gradient(30% 45% at 30% 40%, #007cf022, transparent 70%), radial-gradient(30% 45% at 70% 60%, #00dfd822, transparent 70%);
+    }
+    .eyebrow { font: 400 12px/16px var(--mono); color: var(--mute); }
+    h1 { margin-top: 10px; font-size: clamp(32px, 5vw, 48px); line-height: 1.18; font-weight: 600; letter-spacing: -0.045em; text-wrap: balance; }
+    main { max-width: 960px; margin: 0 auto; padding: 0 24px 96px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+    .card {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px;
+      color: inherit; text-decoration: none; background: var(--canvas); border-radius: 8px; box-shadow: var(--ring), var(--elev-2);
+      transition-property: box-shadow, transform; transition-duration: 150ms; transition-timing-function: ease-out;
+    }
+    .card:hover { box-shadow: var(--ring), var(--elev-4); transform: translateY(-1px); }
+    .card:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+    .card b { font-weight: 600; letter-spacing: -0.3px; }
+    .card span { color: var(--mute); }
+    .empty { padding: 40px 24px; text-align: center; color: var(--body); line-height: 1.6; border-radius: 8px; background: var(--canvas); box-shadow: var(--ring); }
+    .empty code { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+  </style>
+</head>
+<body>
+  <header><a href="/">← Todas as páginas</a></header>
+  <section class="hero">
+    <p class="eyebrow">time</p>
+    <h1 id="team-name">Página do time</h1>
+  </section>
+  <main><div class="grid" id="pages"></div></main>
+
+  <script>
+    (async function () {
+      const base = location.pathname.replace(/[^/]*$/, "");          // /<time>/
+      const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+      const pretty = (s) => s.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      const INDEX = new Set(["index.html", "index.htm", "Index.html", "Index.htm", "INDEX.html", "INDEX.HTML", "INDEX.HTM"]);
+
+      try {
+        const cfg = await (await fetch(base + ".time.json", { cache: "no-cache" })).json();
+        if (cfg && typeof cfg.nome === "string" && cfg.nome.trim()) {
+          document.getElementById("team-name").textContent = cfg.nome;
+          document.title = cfg.nome;
+        }
+      } catch { /* mantém o título padrão */ }
+
+      const box = document.getElementById("pages");
+      try {
+        const dirs = (await (await fetch("/_pastas" + base, { cache: "no-cache" })).json())
+          .filter((e) => e.type === "directory" && !/^[_.]/.test(e.name));
+        const withIndex = (await Promise.all(dirs.map(async (d) => {
+          const items = await (await fetch(`/_pastas${base}${encodeURIComponent(d.name)}/`, { cache: "no-cache" })).json().catch(() => []);
+          return items.some((i) => i.type === "file" && INDEX.has(i.name)) ? d : null;
+        }))).filter(Boolean);
+
+        if (!withIndex.length) {
+          const empty = el("div", "empty");
+          empty.append("Este time ainda não tem páginas. No Admin, crie uma pasta aqui dentro com um ", el("code", null, "index.html"), ".");
+          box.append(empty);
+          return;
+        }
+        for (const d of withIndex.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))) {
+          const a = el("a", "card");
+          a.href = base + encodeURIComponent(d.name) + "/";
+          a.append(el("b", null, pretty(d.name)), el("span", null, "→"));
+          box.append(a);
+        }
+      } catch {
+        box.append(el("div", "empty", "Não foi possível carregar as páginas do time."));
+      }
+    })();
+  </script>
+</body>
+</html>
