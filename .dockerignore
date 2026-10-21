@@ -13,3 +13,7 @@ divulgacao/
 backups/
 tests/
 .github/
+CLAUDE.md
+.claude/
+docs/*.md
+specs/

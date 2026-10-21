@@ -8,3 +8,4 @@ divulgacao/_*
 divulgacao/*.pdf
 divulgacao/*.html
 backups/
+.claude/settings.local.json

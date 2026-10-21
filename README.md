@@ -313,6 +313,21 @@ FB_USER=admin FB_PASS=... python divulgacao/screenshots.py       # prints (reque
 python divulgacao/build.py                                       # carrossel 1080×1350 + PDF
 ```
 
+## Para quem vai contribuir
+
+Leia o [`CLAUDE.md`](CLAUDE.md) e os documentos em [`docs/`](docs/):
+
+| Doc | Responde |
+|---|---|
+| [PRD](docs/PRD.md) | por quê: problema, público, fora do escopo |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | como funciona: peças, rotas, fluxos |
+| [RULES](docs/RULES.md) | o que não pode |
+| [DESIGN](DESIGN.md) | como deve parecer |
+| [MEMORY](docs/MEMORY.md) | decisões e erros, com data e motivo |
+| [TASKS](docs/TASKS.md) | o que falta, com prioridade e critério de pronto |
+
+Toda mudança começa por uma spec em [`specs/`](specs/_modelo.md). Com o Claude Code: `/spec` para planejar, o agente `tech-lead` para o desenho técnico e `/finalizar-commit` para conferir tudo e commitar.
+
 ## Licença
 
 [MIT](LICENSE). Use, modifique e distribua à vontade.
