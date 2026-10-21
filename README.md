@@ -151,6 +151,27 @@ Sem proxy no host? A pasta [`proxy/`](proxy/) tem um Caddy com HTTPS automático
 | Backup | `docker run --rm -v static-pages_srv:/s -v static-pages_db:/d -v "$PWD":/b alpine tar czf /b/backup.tgz /s /d` |
 | Parar | `docker compose down` (os volumes são preservados) |
 
+## Menu automático da home
+
+A home (`content/index.html`) monta os cards sozinha. Criou uma pasta no `/admin`, ela aparece no próximo F5, sem editar HTML.
+
+- **Fonte:** `/_pastas/<caminho>/`, a listagem JSON do NGINX (`autoindex_format json`).
+- **Subpastas:** até 3 níveis. Elas viram links dentro do card da pasta mãe.
+- **Regras:** só entra pasta com `index.html`. Uma pasta sem index, mas com sub-páginas, vira grupo. Pastas que começam com `_` ou `.` ficam fora do menu (continuam acessíveis pela URL).
+- **`meta.json` (opcional)** dentro da pasta personaliza o card:
+
+```json
+{
+  "titulo": "Relatório de Vendas",
+  "descricao": "Resultados do trimestre por região.",
+  "tag": "Dashboard",
+  "ordem": 1,
+  "oculto": false
+}
+```
+
+> O site roda sob CSP `sandbox` (origem opaca), então `/_pastas/`, `meta.json` e os arquivos do site respondem com `Access-Control-Allow-Origin: *`. Isso nunca vale para o `/admin`. A listagem só expõe nomes que já são públicos pela URL.
+
 ## Boas práticas de conteúdo
 
 - Cada pasta precisa de um `index.html` para abrir em `/pasta/`. `Index.html` e `INDEX.HTML` também funcionam.

@@ -4,5 +4,6 @@ proxy/.env
 
 # saídas geradas por divulgacao/build.py
 divulgacao/*.png
+divulgacao/_*
 divulgacao/*.pdf
 divulgacao/*.html

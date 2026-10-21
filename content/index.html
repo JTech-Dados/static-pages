@@ -3,61 +3,345 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Container no ar</title>
+  <title>Static Pages</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* Tokens: DESIGN.md (Vercel) */
+    /* Tokens: DESIGN.md */
     :root {
       --ink: #171717; --body: #4d4d4d; --mute: #888888;
-      --hairline: #ebebeb; --canvas: #ffffff; --canvas-soft: #fafafa;
+      --hairline: #ebebeb; --canvas: #ffffff; --canvas-soft: #fafafa; --canvas-soft-2: #f5f5f5;
+      --link: #0070f3; --link-soft: #d3e5ff;
+      --ring: inset 0 0 0 1px #00000014;
+      --elev-2: 0 1px 1px #00000005, 0 2px 2px #0000000a;
+      --elev-4: 0 2px 2px #0000000a, 0 8px 16px -4px #0000000a;
       --sans: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
       --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; }
     html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-    body {
-      margin: 0; min-height: 100vh; display: grid; place-items: center;
-      font-family: var(--sans); color: var(--ink); background: var(--canvas-soft);
-      position: relative; overflow: hidden;
+    body { min-height: 100vh; font-family: var(--sans); color: var(--ink); background: var(--canvas-soft); }
+
+    /* ---------- Header ---------- */
+    header {
+      position: sticky; top: 0; z-index: 10; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; border-bottom: 1px solid var(--hairline);
+      background: color-mix(in srgb, var(--canvas) 80%, transparent);
+      backdrop-filter: saturate(1.8) blur(8px);
     }
-    /* mesh gradient: decoração só em escala de hero */
-    body::before {
-      content: ""; position: absolute; inset: -20%; z-index: 0; pointer-events: none;
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.3px; color: inherit; text-decoration: none; }
+    .brand img { width: 28px; height: 28px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px;
+      font: 500 14px/1 var(--sans); color: #fff; background: var(--ink);
+      border-radius: 6px; text-decoration: none;
+      transition-property: background-color, transform; transition-duration: 150ms; transition-timing-function: ease-out;
+    }
+    .btn:hover { background: #000; }
+    .btn:active { transform: scale(0.96); }
+    .btn:focus-visible, .card:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+    /* ---------- Hero ---------- */
+    .hero { position: relative; overflow: hidden; padding: 72px 24px 48px; text-align: center; }
+    .hero::before {
+      content: ""; position: absolute; inset: -40% -10% -10%; z-index: -1; pointer-events: none; filter: blur(50px);
       background:
-        radial-gradient(40% 40% at 30% 35%, #007cf033, transparent 70%),
-        radial-gradient(35% 35% at 70% 30%, #ff008026, transparent 70%),
-        radial-gradient(40% 40% at 60% 75%, #00dfd833, transparent 70%),
-        radial-gradient(30% 30% at 25% 75%, #f9cb2826, transparent 70%);
-      filter: blur(40px);
+        radial-gradient(30% 45% at 25% 40%, #007cf026, transparent 70%),
+        radial-gradient(28% 40% at 75% 35%, #ff00801c, transparent 70%),
+        radial-gradient(30% 45% at 55% 80%, #00dfd826, transparent 70%);
     }
-    main {
-      position: relative; z-index: 1; text-align: center; padding: 48px 24px;
-      animation: enter 400ms cubic-bezier(0.16, 1, 0.3, 1);
+    .btn svg { transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+    .btn:hover svg { transform: rotate(60deg); }
+    @media (prefers-reduced-motion: reduce) { .btn:hover svg { transform: none; } }
+    h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.18; font-weight: 600; letter-spacing: -0.045em; text-wrap: balance; }
+
+    /* ---------- Grid ---------- */
+    main { max-width: 1120px; margin: 0 auto; padding: 0 24px 96px; }
+    .bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .count { white-space: nowrap; font: 400 12px/16px var(--mono); color: var(--mute); font-variant-numeric: tabular-nums; }
+    .search {
+      height: 36px; width: min(280px, 100%); padding: 0 12px; font: 400 14px var(--sans); color: var(--ink);
+      background: var(--canvas); border: 1px solid var(--hairline); border-radius: 6px;
+      transition-property: border-color, box-shadow; transition-duration: 150ms; transition-timing-function: ease-out;
     }
-    .eyebrow {
-      display: inline-flex; align-items: center; gap: 8px;
-      font-family: var(--mono); font-size: 12px; line-height: 16px; color: var(--body);
-      padding: 4px 10px; border-radius: 9999px; background: var(--canvas);
-      box-shadow: inset 0 0 0 1px #00000014, 0 1px 1px #00000005, 0 2px 2px #0000000a;
+    .search:focus { outline: none; border-color: #a1a1a1; box-shadow: 0 0 0 3px var(--link-soft); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+
+    .card {
+      position: relative;
+      display: grid; grid-template-columns: 44px minmax(0, 1fr) 24px; gap: 16px; align-items: center;
+      padding: 20px; color: inherit; text-decoration: none; background: var(--canvas);
+      border-radius: 8px; box-shadow: var(--ring), var(--elev-2);
+      transition-property: box-shadow, transform; transition-duration: 150ms; transition-timing-function: ease-out;
+      animation: enter 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
     }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: #0070f3; box-shadow: 0 0 0 3px #d3e5ff; }
-    h1 {
-      margin: 24px 0 8px; font-size: clamp(32px, 6vw, 48px); line-height: 1;
-      font-weight: 600; letter-spacing: -0.05em; text-wrap: balance;
+    .card:hover { box-shadow: var(--ring), var(--elev-4); transform: translateY(-1px); }
+    .card:active { transform: scale(0.99); }
+    .mark {
+      width: 44px; height: 44px; display: grid; place-items: center; border-radius: 8px;
+      font: 600 18px/1 var(--sans); color: var(--ink); background: var(--canvas-soft-2); box-shadow: var(--ring);
+      transition-property: background-color, color; transition-duration: 150ms; transition-timing-function: ease-out;
     }
-    p { margin: 0; font-size: 18px; line-height: 28px; color: var(--body); text-wrap: pretty; }
-    @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-    @media (prefers-reduced-motion: reduce) { main { animation: none; } }
+    .tag {
+      display: inline-block; margin-bottom: 6px; padding: 2px 8px; border-radius: 9999px;
+      font: 500 11px/16px var(--mono); color: var(--body); background: var(--canvas-soft-2); box-shadow: var(--ring);
+    }
+    .title { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -0.3px; overflow-wrap: anywhere; }
+    .desc { margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--body); text-wrap: pretty; }
+    .arrow { color: var(--mute); transition-property: transform, color; transition-duration: 150ms; transition-timing-function: ease-out; }
+    .mark { color: var(--body); }
+    .card:hover .mark { color: var(--ink); background: var(--canvas); }
+    .card:hover .arrow { color: var(--ink); transform: translateX(2px); }
+
+    /* link principal cobre o card inteiro; sub-links ficam por cima */
+    .title a { color: inherit; text-decoration: none; }
+    .title a::after { content: ""; position: absolute; inset: 0; border-radius: 8px; }
+    .title a:focus-visible { outline: none; }
+    .card:has(.title a:focus-visible) { outline: 2px solid var(--link); outline-offset: 2px; }
+    .card.is-group { align-items: start; }
+    .card.is-group:hover { transform: none; box-shadow: var(--ring), var(--elev-2); }
+
+    .subs { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+    .subs a {
+      position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px;
+      height: 28px; padding: 0 10px; border-radius: 6px; font-size: 13px; font-weight: 500;
+      color: var(--body); text-decoration: none; background: var(--canvas-soft); box-shadow: var(--ring);
+      transition-property: background-color, color; transition-duration: 150ms; transition-timing-function: ease-out;
+    }
+    .subs a:hover { color: var(--ink); background: var(--canvas-soft-2); }
+    .subs a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+    .subs .trail { font-family: var(--mono); font-size: 11px; color: var(--mute); }
+
+    .empty, .error {
+      padding: 48px 24px; text-align: center; border-radius: 8px; background: var(--canvas);
+      box-shadow: var(--ring); color: var(--body); font-size: 14px; line-height: 22px;
+    }
+    .empty code, .error code { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+    .skeleton { height: 92px; border-radius: 8px; background: linear-gradient(90deg, var(--canvas-soft-2), var(--canvas), var(--canvas-soft-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; box-shadow: var(--ring); }
+
+    footer { padding: 24px; text-align: center; font: 400 12px/16px var(--mono); color: var(--mute); }
+
+    @keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .card, .skeleton { animation: none; } }
   </style>
 </head>
 <body>
+  <header>
+    <a class="brand" href="/"><img src="/favicon.svg" alt="">Static Pages</a>
+    <a class="btn" href="/admin/">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      Admin
+    </a>
+  </header>
+
+  <section class="hero">
+    <h1>Tudo o que está no ar, num&nbsp;lugar&nbsp;só.</h1>
+  </section>
+
   <main>
-    <span class="eyebrow"><span class="dot" aria-hidden="true"></span>200 OK</span>
-    <h1>Container no ar.</h1>
-    <p>Substitua este arquivo pelo seu site em <code style="font-family:var(--mono);font-size:15px">/admin</code>.</p>
+    <div class="bar">
+      <span class="count" id="count" aria-live="polite">carregando…</span>
+      <input class="search" id="search" type="search" placeholder="Filtrar páginas…" aria-label="Filtrar páginas">
+    </div>
+    <div class="grid" id="grid">
+      <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+    </div>
   </main>
+
+  <footer>Static Pages</footer>
+
+  <script>
+    // ============================================================
+    // Menu automático
+    //
+    // 1. /_pastas/<caminho>/ (autoindex JSON do NGINX) lista pastas
+    // 2. Varre até MAX_DEPTH níveis (/a/, /a/b/, /a/b/c/)
+    // 3. Ignora pastas que começam com "_" ou "."
+    // 4. Pasta com index.html (visto na listagem) vira link; pasta sem
+    //    index mas com sub-páginas vira grupo
+    // 5. /<caminho>/meta.json (opcional):
+    //      { "titulo", "descricao", "tag", "ordem", "oculto" }
+    // Todo texto entra via textContent (nomes vêm de upload).
+    // ============================================================
+    const MAX_DEPTH = 3;
+    const grid = document.getElementById("grid");
+    const count = document.getElementById("count");
+    const search = document.getElementById("search");
+    let items = [];
+
+    const el = (tag, cls, text) => {
+      const node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text != null) node.textContent = text;
+      return node;
+    };
+
+    const prettify = (name) => name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const urlOf = (parts) => (parts.length ? "/" + parts.map(encodeURIComponent).join("/") : "") + "/";
+    const byOrder = (a, b) => a.ordem - b.ordem || a.titulo.localeCompare(b.titulo, "pt-BR");
+
+    // Nomes aceitos como página inicial (iguais à diretiva "index" do NGINX)
+    const INDEX_NAMES = new Set(["index.html", "index.htm", "Index.html", "Index.htm", "INDEX.html", "INDEX.HTML", "INDEX.HTM"]);
+
+    async function listDir(parts) {
+      const r = await fetch("/_pastas" + urlOf(parts), { cache: "no-cache" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const entries = await r.json();
+      return {
+        dirs: entries.filter((e) => e.type === "directory" && !/^[_.]/.test(e.name)),
+        hasIndex: entries.some((e) => e.type === "file" && INDEX_NAMES.has(e.name)),
+      };
+    }
+
+    async function loadMeta(parts) {
+      try {
+        const r = await fetch(urlOf(parts) + "meta.json", { cache: "no-cache" });
+        if (!r.ok || r.status === 204) return {};
+        const data = await r.json();
+        return data && typeof data === "object" ? data : {};
+      } catch { return {}; }
+    }
+
+    // Monta a árvore: { titulo, href|null, children: [...] }
+    async function scan(parts) {
+      const [listing, meta] = await Promise.all([
+        listDir(parts).catch(() => ({ dirs: [], hasIndex: false })), loadMeta(parts),
+      ]);
+      if (meta.oculto === true) return null;
+      const ok = listing.hasIndex;
+      const dirs = parts.length < MAX_DEPTH ? listing.dirs : [];
+      const children = (await Promise.all(dirs.map((d) => scan([...parts, d.name])))).filter(Boolean).sort(byOrder);
+      if (!ok && !children.length) return null;
+      const name = parts[parts.length - 1];
+      return {
+        name,
+        href: ok ? urlOf(parts) : null,
+        titulo: typeof meta.titulo === "string" && meta.titulo.trim() ? meta.titulo : prettify(name),
+        descricao: typeof meta.descricao === "string" ? meta.descricao : "",
+        tag: typeof meta.tag === "string" ? meta.tag : "",
+        ordem: Number.isFinite(meta.ordem) ? meta.ordem : 1000,
+        children,
+      };
+    }
+
+    // Sub-páginas em lista plana: [{ trail: ["Pasta"], titulo, href }]
+    function flatten(node, trail = []) {
+      return node.children.flatMap((c) => [
+        ...(c.href ? [{ trail, titulo: c.titulo, href: c.href, texto: [c.titulo, c.descricao, c.tag, c.name] }] : []),
+        ...flatten(c, [...trail, c.titulo]),
+      ]);
+    }
+
+    // ícone genérico de página web (globo), mesmo traço da engrenagem
+    const SVG_NS = "http://www.w3.org/2000/svg";
+    function globe() {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      for (const [k, v] of Object.entries({ width: 22, height: 22, viewBox: "0 0 24 24", fill: "none",
+        stroke: "currentColor", "stroke-width": 1.75, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" }))
+        svg.setAttribute(k, v);
+      for (const d of ["M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20z", "M2 12h20",
+        "M12 2a15.3 15.3 0 0 1 4 10a15.3 15.3 0 0 1-4 10a15.3 15.3 0 0 1-4-10a15.3 15.3 0 0 1 4-10z"]) {
+        const path = document.createElementNS(SVG_NS, "path");
+        path.setAttribute("d", d);
+        svg.append(path);
+      }
+      return svg;
+    }
+
+    function card(item, subs, i) {
+      const art = el("article", item.href ? "card" : "card is-group");
+      art.style.animationDelay = `${Math.min(i, 12) * 30}ms`;
+
+      const mark = el("span", "mark");
+      mark.append(globe());
+      art.append(mark);
+
+      const body = el("div");
+      if (item.tag) body.append(el("span", "tag", item.tag));
+      const title = el("div", "title");
+      if (item.href) {
+        const a = el("a", null, item.titulo);
+        a.href = item.href;
+        title.append(a);
+      } else {
+        title.textContent = item.titulo;
+      }
+      body.append(title);
+      if (item.descricao) body.append(el("div", "desc", item.descricao));
+
+      if (subs.length) {
+        const ul = el("ul", "subs");
+        ul.setAttribute("aria-label", `Sub-páginas de ${item.titulo}`);
+        for (const s of subs) {
+          const li = el("li");
+          const a = el("a");
+          a.href = s.href;
+          if (s.trail.length) a.append(el("span", "trail", s.trail.join(" › ") + " ›"));
+          a.append(s.titulo);
+          li.append(a);
+          ul.append(li);
+        }
+        body.append(ul);
+      }
+      art.append(body);
+
+      if (item.href) {
+        const arrow = el("span", "arrow");
+        arrow.setAttribute("aria-hidden", "true");
+        arrow.textContent = "→";
+        art.append(arrow);
+      }
+      return art;
+    }
+
+    const matches = (q, values) => values.some((v) => v.toLowerCase().includes(q));
+
+    function render() {
+      const q = search.value.trim().toLowerCase();
+      const rows = [];
+      for (const it of items) {
+        const subs = flatten(it);
+        const selfHit = !q || matches(q, [it.titulo, it.descricao, it.tag, it.name]);
+        const visibleSubs = selfHit ? subs : subs.filter((s) => matches(q, s.texto));
+        if (selfHit || visibleSubs.length) rows.push([it, visibleSubs]);
+      }
+      const total = items.reduce((n, it) => n + (it.href ? 1 : 0) + flatten(it).length, 0);
+      const shown = rows.reduce((n, [it, subs]) => n + (it.href ? 1 : 0) + subs.length, 0);
+
+      grid.replaceChildren();
+      if (!items.length) {
+        const box = el("div", "empty");
+        box.append("Nenhuma página publicada ainda. No ", el("code", null, "/admin"),
+          ", crie uma pasta e coloque um ", el("code", null, "index.html"), " dentro.");
+        grid.append(box);
+      } else if (!rows.length) {
+        grid.append(el("div", "empty", "Nada encontrado para esse filtro."));
+      } else {
+        rows.forEach(([it, subs], i) => grid.append(card(it, subs, i)));
+      }
+      count.textContent = q ? `${shown} de ${total} páginas` : `${total} ${total === 1 ? "página" : "páginas"}`;
+    }
+
+    async function main() {
+      try {
+        const { dirs: top } = await listDir([]);
+        items = (await Promise.all(top.map((d) => scan([d.name])))).filter(Boolean).sort(byOrder);
+        render();
+      } catch (err) {
+        grid.replaceChildren();
+        const box = el("div", "error");
+        box.append("Não foi possível carregar a lista de páginas (", el("code", null, String(err.message || err)), ").");
+        grid.append(box);
+        count.textContent = "erro";
+      }
+    }
+
+    search.addEventListener("input", render);
+    main();
+  </script>
 </body>
 </html>
