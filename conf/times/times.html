@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Times - Static Pages</title>
+  <link rel="icon" href="/admin/static/img/icons/favicon-32x32.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* Tokens: DESIGN.md */
+    :root {
+      --ink: #171717; --body: #4d4d4d; --mute: #888888;
+      --hairline: #ebebeb; --hairline-strong: #a1a1a1;
+      --canvas: #ffffff; --canvas-soft: #fafafa; --canvas-soft-2: #f5f5f5;
+      --link: #0070f3; --link-soft: #d3e5ff;
+      --warn: #ab570a; --warn-soft: #ffefcf; --bad: #c50000; --bad-soft: #f7d4d6;
+      --ring: inset 0 0 0 1px #00000014;
+      --elev-2: 0 1px 1px #00000005, 0 2px 2px #0000000a;
+      --elev-5: 0 1px 1px #00000005, 0 8px 16px -4px #0000000a, 0 24px 32px -8px #0000000f;
+      --sans: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body { min-height: 100vh; font: 400 14px/20px var(--sans); letter-spacing: -0.28px; color: var(--ink); background: var(--canvas-soft); }
+    button, input, select { font: inherit; letter-spacing: inherit; }
+    .mono { font-family: var(--mono); font-size: 12px; }
+
+    /* ---------- Cabeçalho e menu iguais aos do painel ---------- */
+    header {
+      position: fixed; inset: 0 0 auto 0; z-index: 10; height: 56px; display: flex; align-items: center; gap: 16px;
+      padding: 0 16px; border-bottom: 1px solid var(--hairline);
+      background: color-mix(in srgb, var(--canvas) 80%, transparent); backdrop-filter: saturate(1.8) blur(8px);
+    }
+    header .logo { display: inline-flex; width: 40px; height: 40px; }
+    header .logo img { width: 40px; height: 40px; }
+    header .spacer { flex: 1; }
+
+    .side {
+      position: fixed; top: 56px; left: 0; bottom: 0; width: 16em; padding-top: 12px; overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    .side a, .side button {
+      display: flex; align-items: center; gap: 12px; min-height: 40px; margin: 1px 8px; padding: 0 12px;
+      border: 0; border-radius: 6px; font-size: 15px; color: var(--body); text-decoration: none; background: transparent;
+      cursor: pointer; text-align: left;
+      transition-property: background-color, color; transition-duration: 150ms; transition-timing-function: ease-out;
+    }
+    .side a:hover, .side button:hover { background: var(--canvas-soft-2); color: var(--ink); }
+    .side a[aria-current=page] { background: var(--canvas-soft-2); color: var(--ink); font-weight: 500; }
+    .side .material-icons { font-size: 20px; width: 20px; flex-shrink: 0; }
+    .material-icons { font-family: "Material Icons"; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; font-feature-settings: "liga"; }
+    .side hr { border: 0; border-top: 1px solid var(--hairline); margin: 6px 0; }
+    .side a:focus-visible, .side button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+    main { margin-left: 16em; padding: 88px 32px 96px; max-width: calc(1120px + 16em); display: flex; flex-direction: column; gap: 32px; }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+    @media (max-width: 736px) {
+      .side { position: static; width: auto; flex-direction: row; flex-wrap: wrap; padding: 64px 8px 0; }
+      .side hr { display: none; }
+      main { margin-left: 0; padding: 24px 16px 96px; }
+    }
+    .intro h2 { font-size: 32px; line-height: 40px; font-weight: 600; letter-spacing: -1.28px; text-wrap: balance; }
+    .intro p { margin-top: 6px; color: var(--body); max-width: 640px; text-wrap: pretty; }
+    .section-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; font-size: 13px; font-weight: 500; color: var(--body); }
+    .section-title .mono { color: var(--mute); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px;
+      border: 0; border-radius: 6px; cursor: pointer; font-weight: 500; color: #fff; background: var(--ink);
+      transition-property: background-color, transform, box-shadow; transition-duration: 150ms; transition-timing-function: ease-out;
+    }
+    .btn:hover { background: #000; }
+    .btn:active { transform: scale(0.96); }
+    .btn.secondary { color: var(--ink); background: var(--canvas); box-shadow: var(--ring); }
+    .btn.secondary:hover { background: var(--canvas-soft-2); }
+    .btn.danger { color: var(--bad); background: var(--canvas); box-shadow: var(--ring); }
+    .btn.danger:hover { background: var(--bad-soft); }
+    .btn.sm { height: 28px; padding: 0 10px; font-size: 13px; }
+    .btn:disabled { opacity: .5; cursor: default; transform: none; }
+    .btn:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
+    .card { background: var(--canvas); border-radius: 8px; box-shadow: var(--ring), var(--elev-2); padding: 20px; display: flex; flex-direction: column; gap: 16px; animation: enter 250ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .card-head h3 { font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.5px; overflow-wrap: anywhere; }
+    .card-head a { color: var(--mute); text-decoration: none; }
+    .card-head a:hover { color: var(--link); }
+
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .stat { padding: 10px 12px; border-radius: 6px; background: var(--canvas-soft); box-shadow: var(--ring); }
+    .stat b { display: block; font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+    .stat span { font-size: 12px; color: var(--mute); }
+
+    .quota { display: flex; flex-direction: column; gap: 6px; }
+    .quota .bar { height: 6px; border-radius: 9999px; background: var(--canvas-soft-2); overflow: hidden; box-shadow: var(--ring); }
+    .quota .fill { height: 100%; border-radius: inherit; background: var(--ink); transform-origin: left; transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1); }
+    .quota.warn .fill { background: var(--warn); } .quota.bad .fill { background: var(--bad); }
+    .quota .label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--mute); font-variant-numeric: tabular-nums; }
+    .quota.warn .label b { color: var(--warn); } .quota.bad .label b { color: var(--bad); }
+
+    .members { list-style: none; padding: 0; display: flex; flex-direction: column; }
+    .members li { display: flex; align-items: center; gap: 8px; min-height: 40px; border-top: 1px solid var(--hairline); }
+    .members .who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+    .avatar { width: 24px; height: 24px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 600; text-transform: uppercase; background: var(--canvas-soft-2); box-shadow: var(--ring); }
+    .members select { height: 28px; max-width: 140px; padding: 0 6px; border: 0; border-radius: 6px; color: var(--body); background: var(--canvas-soft); box-shadow: var(--ring); cursor: pointer; }
+    .members .none { color: var(--mute); padding: 8px 0; border-top: 1px solid var(--hairline); }
+    .card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .loose { display: flex; flex-wrap: wrap; gap: 8px; }
+    .loose .item { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px 0 14px; border-radius: 8px; background: var(--canvas); box-shadow: var(--ring); }
+
+    .empty, .notice { padding: 40px 24px; text-align: center; color: var(--body); border-radius: 8px; background: var(--canvas); box-shadow: var(--ring); }
+    .notice a { color: var(--link); }
+
+    dialog { width: min(440px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 12px; box-shadow: var(--ring), var(--elev-5); color: var(--ink); }
+    dialog[open] { animation: enter 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+    dialog::backdrop { background: #00000033; backdrop-filter: blur(2px); }
+    dialog form { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+    dialog h2 { font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.6px; }
+    dialog p.hint { color: var(--body); font-size: 13px; }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500; }
+    label small { font-weight: 400; color: var(--mute); }
+    input[type=text], input[type=number], input[type=password], select.full {
+      height: 40px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 6px; background: var(--canvas); color: var(--ink);
+      transition-property: border-color, box-shadow; transition-duration: 150ms; transition-timing-function: ease-out;
+    }
+    input:focus, select.full:focus { outline: none; border-color: var(--hairline-strong); box-shadow: 0 0 0 3px var(--link-soft); }
+    .row { display: flex; gap: 8px; } .row > * { flex: 1; } .row .btn { flex: 0 0 auto; }
+    .tabs { display: flex; gap: 4px; padding: 4px; border-radius: 8px; background: var(--canvas-soft-2); box-shadow: var(--ring); }
+    .tabs button { flex: 1; height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--body); cursor: pointer; font-weight: 500; }
+    .tabs button[aria-selected=true] { background: var(--canvas); color: var(--ink); box-shadow: var(--ring), var(--elev-2); }
+    .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+    .secret { font-family: var(--mono); padding: 10px 12px; border-radius: 6px; background: var(--canvas-soft); box-shadow: var(--ring); overflow-wrap: anywhere; }
+
+    #toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none; padding: 10px 16px; border-radius: 8px; color: #fff; background: var(--ink); box-shadow: var(--elev-5); transition-property: opacity, transform; transition-duration: 200ms; transition-timing-function: ease-out; }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+    #toast.error { background: var(--bad); }
+
+    .skeleton { height: 260px; border-radius: 8px; box-shadow: var(--ring); background: linear-gradient(90deg, var(--canvas-soft-2), var(--canvas), var(--canvas-soft-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+    @keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition-duration: 0ms !important; } }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="logo" href="/admin/files/" aria-label="Arquivos"><img src="/admin/static/img/logo.svg" alt=""></a>
+    <span class="spacer"></span>
+  </header>
+
+  <nav class="side" aria-label="Menu do painel">
+    <a href="/admin/files/">
+      <i class="material-icons" aria-hidden="true">folder</i>
+      Arquivos
+    </a>
+    <hr>
+    <a href="/admin/times" aria-current="page">
+      <i class="material-icons" aria-hidden="true">groups</i>
+      Times
+    </a>
+    <a href="/admin/settings/profile">
+      <i class="material-icons" aria-hidden="true">settings_applications</i>
+      Configurações
+    </a>
+    <button type="button" id="logout">
+      <i class="material-icons" aria-hidden="true">exit_to_app</i>
+      Sair
+    </button>
+  </nav>
+
+  <main id="app">
+    <section class="intro page-head">
+      <div>
+        <h2>Times e acessos</h2>
+        <p>Cada time é uma pasta do site. Quem entra num time só enxerga e edita a pasta dele no painel.</p>
+      </div>
+      <button class="btn" id="btn-new" type="button" hidden>+ Novo time</button>
+    </section>
+    <section id="teams-section">
+      <div class="section-title">Times <span class="mono" id="teams-count"></span></div>
+      <div class="grid" id="teams"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+    <section id="loose-section" hidden>
+      <div class="section-title">Pastas sem time <span class="mono">transforme em time para atribuir pessoas</span></div>
+      <div class="loose" id="loose"></div>
+    </section>
+  </main>
+
+  <!-- Novo / editar time -->
+  <dialog id="dlg-team">
+    <form method="dialog" id="form-team">
+      <h2 id="team-title">Novo time</h2>
+      <label>Nome do time <input type="text" name="nome" required maxlength="60" autocomplete="off"></label>
+      <label>Pasta <small>endereço no site; não muda depois de criado</small>
+        <input type="text" name="slug" required pattern="[a-z0-9][a-z0-9\-]{0,49}" maxlength="50" autocomplete="off">
+      </label>
+      <label>Cota de espaço (MB) <small>opcional; só alerta, não bloqueia uploads</small>
+        <input type="number" name="cota" min="1" step="1" inputmode="numeric">
+      </label>
+      <div class="dlg-actions">
+        <button class="btn secondary" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn" value="ok">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Adicionar membro -->
+  <dialog id="dlg-member">
+    <form method="dialog" id="form-member">
+      <h2>Adicionar ao <span id="member-team"></span></h2>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="new" aria-selected="true">Nova pessoa</button>
+        <button type="button" role="tab" data-tab="existing" aria-selected="false">Usuário existente</button>
+      </div>
+      <div data-pane="new">
+        <label>Usuário <input type="text" name="username" maxlength="60" autocomplete="off" pattern="[A-Za-z0-9._@\-]+"></label>
+        <label style="margin-top:14px">Senha inicial
+          <div class="row"><input type="text" name="password" minlength="12" autocomplete="off"><button class="btn secondary" type="button" id="gen-pass">Gerar</button></div>
+        </label>
+      </div>
+      <div data-pane="existing" hidden>
+        <label>Usuário <select class="full" name="existing"></select></label>
+        <p class="hint" style="margin-top:8px">A pessoa sai do time atual e passa a ver só a pasta deste time.</p>
+      </div>
+      <div class="dlg-actions">
+        <button class="btn secondary" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn" value="ok">Adicionar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Senha criada -->
+  <dialog id="dlg-secret">
+    <form method="dialog">
+      <h2>Pessoa adicionada</h2>
+      <p class="hint">Envie estes dados para a pessoa. A senha não será mostrada de novo.</p>
+      <div class="secret" id="secret"></div>
+      <div class="dlg-actions">
+        <button class="btn secondary" type="button" id="copy-secret">Copiar</button>
+        <button class="btn" value="ok">Pronto</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // ============================================================
+    // Times: gerenciamento sobre a API do File Browser
+    //
+    // - Time = pasta de 1º nível em /srv com um arquivo .time.json
+    //   ({ "nome", "cota_mb" }). Dotfiles respondem 404 no site.
+    // - Membro = usuário com escopo "/<pasta>" (o File Browser
+    //   restringe o painel àquela pasta).
+    // - Usa o token do login atual (localStorage "jwt"); só admin.
+    // ============================================================
+    // Ícones: reaproveita a fonte Material Icons do próprio File Browser.
+    // O nome do arquivo é versionado, então descobre o CSS do painel em
+    // vez de fixar o caminho (continua certo após atualizar o File Browser).
+    (async function loadPanelIcons() {
+      try {
+        const html = await (await fetch("/admin/", { cache: "force-cache" })).text();
+        const href = (html.match(/href="([^"]+\/assets\/index-[^"]+\.css)"/) || [])[1];
+        if (!href) return;
+        const css = await (await fetch(href, { cache: "force-cache" })).text();
+        const face = (css.match(/@font-face\{[^}]*Material Icons[^}]*\}/) || [])[0];
+        if (!face) return;
+        const base = href.slice(0, href.lastIndexOf("/") + 1);
+        const style = document.createElement("style");
+        style.textContent = face.replace(/url\(\.\//g, `url(${base}`);
+        document.head.append(style);
+      } catch { /* sem ícones, o menu continua funcionando com os textos */ }
+    })();
+
+    const API = "/admin/api";
+    const TEAM_FILE = ".time.json";
+    const NO_TEAM_SCOPE = "/_sem-time";
+    const INDEX_NAMES = new Set(["index.html", "index.htm", "Index.html", "Index.htm", "INDEX.html", "INDEX.HTML", "INDEX.HTM"]);
+    const MAX_WALK = 3000;            // limite de itens varridos por time
+    const MEMBER_PERM = { admin: false, execute: false, create: true, rename: true, modify: true, delete: true, share: false, download: true };
+
+    const $ = (sel) => document.querySelector(sel);
+    const el = (tag, cls, text) => {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    };
+    const enc = (path) => path.split("/").map(encodeURIComponent).join("/");
+    const normScope = (s) => "/" + String(s || "").replace(/^\.?\/*/, "").replace(/\/+$/, "");
+    const fmtBytes = (b) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : b < 1073741824 ? `${(b / 1048576).toFixed(1)} MB` : `${(b / 1073741824).toFixed(2)} GB`;
+    const slugify = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50);
+
+    let token = null;
+    let state = { users: [], teams: [], loose: [] };
+
+    function toast(msg, isError = false) {
+      const t = $("#toast");
+      t.textContent = msg;
+      t.className = "show" + (isError ? " error" : "");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => (t.className = ""), 3200);
+    }
+
+    async function api(path, opts = {}) {
+      const r = await fetch(API + path, { ...opts, headers: { "X-Auth": token, ...(opts.headers || {}) } });
+      if (r.status === 401 || r.status === 403) throw new Error("Sessão expirada ou sem permissão. Entre de novo no Admin.");
+      if (!r.ok) throw new Error(`Erro ${r.status} em ${path}`);
+      const type = r.headers.get("content-type") || "";
+      return type.includes("json") ? r.json() : r.text();
+    }
+
+    const listDir = (path) => api(`/resources${enc(path)}/`);
+    const readText = (path) => api(`/raw${enc(path)}`);
+    const writeText = (path, text) => api(`/resources${enc(path)}?override=true`, { method: "POST", body: text });
+    const userBody = (data, which = []) => JSON.stringify({ what: "user", which, data });
+
+    // Soma tamanho e conta páginas (pastas com index) de um time
+    async function measure(root) {
+      let size = 0, pages = 0, seen = 0, truncated = false;
+      const queue = [root];
+      while (queue.length) {
+        const dir = queue.shift();
+        const { items = [] } = await listDir(dir).catch(() => ({ items: [] }));
+        if (items.some((i) => !i.isDir && INDEX_NAMES.has(i.name))) pages++;
+        for (const it of items) {
+          if (++seen > MAX_WALK) { truncated = true; queue.length = 0; break; }
+          if (it.isDir) queue.push(it.path); else size += it.size;
+        }
+      }
+      return { size, pages, truncated };
+    }
+
+    async function load() {
+      const [users, root] = await Promise.all([api("/users"), listDir("")]);
+      state.users = users;
+      const dirs = (root.items || []).filter((i) => i.isDir && !/^[_.]/.test(i.name));
+
+      const scanned = await Promise.all(dirs.map(async (d) => {
+        const listing = await listDir("/" + d.name).catch(() => ({ items: [] }));
+        const hasTeam = (listing.items || []).some((i) => !i.isDir && i.name === TEAM_FILE);
+        if (!hasTeam) return { loose: d.name };
+        let cfg = {};
+        try {
+          // /raw de um .json já volta como JSON (content-type), texto nos demais casos
+          const raw = await readText(`/${d.name}/${TEAM_FILE}`);
+          cfg = typeof raw === "string" ? JSON.parse(raw) : raw || {};
+        } catch { cfg = {}; }
+        const stats = await measure("/" + d.name);
+        const scope = "/" + d.name;
+        const members = users.filter((u) => !u.perm.admin && (normScope(u.scope) === scope || normScope(u.scope).startsWith(scope + "/")));
+        return { team: { slug: d.name, nome: typeof cfg.nome === "string" && cfg.nome ? cfg.nome : d.name, cota_mb: Number(cfg.cota_mb) > 0 ? Number(cfg.cota_mb) : null, members, ...stats } };
+      }));
+
+      state.teams = scanned.filter((s) => s.team).map((s) => s.team).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+      state.loose = scanned.filter((s) => s.loose).map((s) => s.loose).sort();
+      render();
+    }
+
+    function teamCard(t, i) {
+      const card = el("article", "card");
+      card.style.animationDelay = `${Math.min(i, 10) * 40}ms`;
+
+      const head = el("div", "card-head");
+      const titles = el("div");
+      titles.append(el("h3", null, t.nome));
+      const link = el("a", "mono", `/${t.slug}/`);
+      link.href = `/${encodeURIComponent(t.slug)}/`;
+      link.target = "_blank";
+      link.rel = "noopener";
+      titles.append(link);
+      head.append(titles);
+      const edit = el("button", "btn secondary sm", "Editar");
+      edit.type = "button";
+      edit.onclick = () => openTeamDialog(t);
+      head.append(edit);
+      card.append(head);
+
+      const stats = el("div", "stats");
+      for (const [v, label] of [[t.members.length, t.members.length === 1 ? "pessoa" : "pessoas"], [t.pages, t.pages === 1 ? "página" : "páginas"], [fmtBytes(t.size) + (t.truncated ? "+" : ""), "em uso"]]) {
+        const s = el("div", "stat");
+        s.append(el("b", null, String(v)), el("span", null, label));
+        stats.append(s);
+      }
+      card.append(stats);
+
+      if (t.cota_mb) {
+        const limit = t.cota_mb * 1048576;
+        const ratio = t.size / limit;
+        const q = el("div", "quota" + (ratio >= 1 ? " bad" : ratio >= 0.8 ? " warn" : ""));
+        const bar = el("div", "bar");
+        const fill = el("div", "fill");
+        fill.style.transform = `scaleX(${Math.min(ratio, 1)})`;
+        bar.append(fill);
+        const label = el("div", "label");
+        label.append(el("span", null, `cota ${fmtBytes(limit)}`), el("b", null, `${Math.round(ratio * 100)}%`));
+        q.append(bar, label);
+        card.append(q);
+      }
+
+      const list = el("ul", "members");
+      if (!t.members.length) list.append(el("li", "none", "Ninguém neste time ainda."));
+      for (const u of t.members) {
+        const li = el("li");
+        const who = el("span", "who");
+        who.append(el("span", "avatar", u.username.charAt(0)), el("span", null, u.username));
+        li.append(who);
+
+        const move = el("select");
+        move.setAttribute("aria-label", `Mover ${u.username} para outro time`);
+        move.append(new Option("Mover para…", ""));
+        for (const other of state.teams) if (other.slug !== t.slug) move.append(new Option(other.nome, "/" + other.slug));
+        move.append(new Option("Sem time", NO_TEAM_SCOPE));
+        move.onchange = () => move.value && moveUser(u, move.value, move.selectedOptions[0].text);
+        li.append(move);
+
+        const del = el("button", "btn danger sm", "Remover");
+        del.type = "button";
+        del.onclick = () => deleteUser(u);
+        li.append(del);
+        list.append(li);
+      }
+      card.append(list);
+
+      const actions = el("div", "card-actions");
+      const add = el("button", "btn sm", "+ Adicionar pessoa");
+      add.type = "button";
+      add.onclick = () => openMemberDialog(t);
+      actions.append(add);
+      card.append(actions);
+      return card;
+    }
+
+    function render() {
+      const teams = $("#teams");
+      teams.replaceChildren();
+      $("#teams-count").textContent = `${state.teams.length}`;
+      if (!state.teams.length) {
+        const box = el("div", "empty");
+        box.append("Nenhum time ainda. Use ", el("b", null, "+ Novo time"), " ou transforme uma pasta abaixo.");
+        teams.append(box);
+      }
+      state.teams.forEach((t, i) => teams.append(teamCard(t, i)));
+
+      $("#loose-section").hidden = !state.loose.length;
+      const loose = $("#loose");
+      loose.replaceChildren();
+      for (const name of state.loose) {
+        const item = el("span", "item");
+        item.append(el("span", "mono", `/${name}/`));
+        const b = el("button", "btn secondary sm", "Transformar em time");
+        b.type = "button";
+        b.onclick = () => openTeamDialog({ slug: name, nome: name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()), cota_mb: null }, true);
+        item.append(b);
+        loose.append(item);
+      }
+    }
+
+    // ---------- Ações ----------
+    async function saveTeam({ slug, nome, cota_mb }, create) {
+      if (create) await api(`/resources/${encodeURIComponent(slug)}/`, { method: "POST" }).catch(() => {});
+      const cfg = { nome, ...(cota_mb ? { cota_mb } : {}) };
+      await writeText(`/${slug}/${TEAM_FILE}`, JSON.stringify(cfg, null, 2) + "\n");
+    }
+
+    async function moveUser(u, scope, label) {
+      try {
+        await api(`/users/${u.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: userBody({ id: u.id, scope }, ["scope"]) });
+        toast(`${u.username} agora está em ${label}.`);
+        await load();
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function deleteUser(u) {
+      if (!confirm(`Remover o acesso de "${u.username}"? O usuário será apagado; os arquivos do time continuam.`)) return;
+      try {
+        await api(`/users/${u.id}`, { method: "DELETE" });
+        toast(`${u.username} removido.`);
+        await load();
+      } catch (e) { toast(e.message, true); }
+    }
+
+    async function removeTeam(t) {
+      if (!confirm(`Desfazer o time "${t.nome}"? A pasta e os arquivos continuam; ${t.members.length} pessoa(s) ficam sem time.`)) return;
+      try {
+        for (const u of t.members)
+          await api(`/users/${u.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: userBody({ id: u.id, scope: NO_TEAM_SCOPE }, ["scope"]) });
+        await api(`/resources/${encodeURIComponent(t.slug)}/${encodeURIComponent(TEAM_FILE)}`, { method: "DELETE" });
+        toast(`Time "${t.nome}" desfeito.`);
+        await load();
+      } catch (e) { toast(e.message, true); }
+    }
+
+    // ---------- Diálogo: time ----------
+    function openTeamDialog(t, fromLoose = false) {
+      const dlg = $("#dlg-team"), f = $("#form-team");
+      const isNew = !t || fromLoose;
+      $("#team-title").textContent = !t ? "Novo time" : fromLoose ? "Transformar em time" : "Editar time";
+      f.nome.value = t ? t.nome : "";
+      f.slug.value = t ? t.slug : "";
+      f.slug.readOnly = !!t;
+      f.cota.value = t && t.cota_mb ? t.cota_mb : "";
+      f.nome.oninput = () => { if (!t) f.slug.value = slugify(f.nome.value); };
+
+      let extra = f.querySelector("[data-remove]");
+      if (extra) extra.remove();
+      if (t && !fromLoose) {
+        extra = el("button", "btn danger", "Desfazer time");
+        extra.type = "button";
+        extra.dataset.remove = "";
+        extra.onclick = () => { dlg.close(); removeTeam(t); };
+        f.querySelector(".dlg-actions").prepend(extra);
+      }
+
+      dlg.onclose = async () => {
+        if (dlg.returnValue !== "ok") return;
+        const data = { slug: f.slug.value.trim(), nome: f.nome.value.trim(), cota_mb: Number(f.cota.value) || null };
+        if (!t && state.teams.concat(state.loose.map((s) => ({ slug: s }))).some((x) => x.slug === data.slug)) {
+          toast(`Já existe uma pasta /${data.slug}/.`, true);
+          return;
+        }
+        try {
+          await saveTeam(data, !t);
+          toast(isNew ? `Time "${data.nome}" criado.` : "Time atualizado.");
+          await load();
+        } catch (e) { toast(e.message, true); }
+      };
+      dlg.returnValue = "";
+      dlg.showModal();
+    }
+
+    // ---------- Diálogo: membro ----------
+    function genPassword() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+    }
+
+    function setTab(tab) {
+      const f = $("#form-member");
+      f.querySelectorAll("[role=tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+      f.querySelectorAll("[data-pane]").forEach((p) => (p.hidden = p.dataset.pane !== tab));
+      f.username.required = f.password.required = tab === "new";
+      f.existing.required = tab === "existing";
+      f.dataset.tab = tab;
+    }
+
+    function openMemberDialog(t) {
+      const dlg = $("#dlg-member"), f = $("#form-member");
+      $("#member-team").textContent = t.nome;
+      f.reset();
+      f.password.value = genPassword();
+
+      const candidates = state.users.filter((u) => !u.perm.admin && !t.members.some((m) => m.id === u.id));
+      f.existing.replaceChildren(new Option(candidates.length ? "Escolha…" : "Nenhum usuário disponível", ""));
+      for (const u of candidates) {
+        const current = state.teams.find((x) => normScope(u.scope) === "/" + x.slug);
+        f.existing.append(new Option(`${u.username}${current ? ` (hoje em ${current.nome})` : ""}`, String(u.id)));
+      }
+      setTab("new");
+
+      dlg.onclose = async () => {
+        if (dlg.returnValue !== "ok") return;
+        try {
+          if (f.dataset.tab === "existing") {
+            const u = state.users.find((x) => String(x.id) === f.existing.value);
+            if (u) await moveUser(u, "/" + t.slug, t.nome);
+            return;
+          }
+          const username = f.username.value.trim();
+          const password = f.password.value;
+          if (state.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
+            toast(`O usuário "${username}" já existe. Use a aba Usuário existente.`, true);
+            return;
+          }
+          await api("/users", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: userBody({ username, password, scope: "/" + t.slug, locale: "pt-br", lockPassword: false, perm: MEMBER_PERM, commands: [], rules: [], hideDotfiles: true, viewMode: "list" }),
+          });
+          $("#secret").textContent = `Endereço: ${location.origin}/admin/\nUsuário: ${username}\nSenha: ${password}`;
+          $("#secret").style.whiteSpace = "pre-line";
+          $("#dlg-secret").showModal();
+          await load();
+        } catch (e) { toast(e.message, true); }
+      };
+      dlg.returnValue = "";
+      dlg.showModal();
+    }
+
+    // ---------- Inicialização ----------
+    function requireAdmin() {
+      try {
+        token = localStorage.getItem("jwt");
+        const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        if (payload.exp * 1000 < Date.now()) return "expirada";
+        return payload.user && payload.user.perm && payload.user.perm.admin ? "ok" : "sem-admin";
+      } catch { return "sem-login"; }
+    }
+
+    function notice(text) {
+      const box = el("div", "notice");
+      box.append(text + " ");
+      const a = el("a", null, "Ir para o login");
+      a.href = "/admin/login";
+      box.append(a);
+      $("#app").replaceChildren(box);
+    }
+
+    $("#form-member").querySelectorAll("[role=tab]").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
+    $("#gen-pass").onclick = () => ($("#form-member").password.value = genPassword());
+    $("#copy-secret").onclick = async () => {
+      try { await navigator.clipboard.writeText($("#secret").textContent); toast("Copiado."); } catch { toast("Não foi possível copiar.", true); }
+    };
+    $("#btn-new").onclick = () => openTeamDialog(null);
+    // Sair: mesmo efeito do botão do painel (descarta o token local)
+    $("#logout").onclick = () => { localStorage.removeItem("jwt"); location.href = "/admin/login"; };
+
+    const status = requireAdmin();
+    if (status === "ok") {
+      $("#btn-new").hidden = false;
+      load().catch((e) => { toast(e.message, true); notice(e.message); });
+    } else if (status === "sem-admin") {
+      notice("Só administradores gerenciam times.");
+    } else {
+      notice(status === "expirada" ? "Sua sessão expirou." : "Entre no Admin para gerenciar times.");
+    }
+  </script>
+</body>
+</html>

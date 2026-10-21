@@ -172,6 +172,29 @@ A home (`content/index.html`) monta os cards sozinha. Criou uma pasta no `/admin
 
 > O site roda sob CSP `sandbox` (origem opaca), então `/_pastas/`, `meta.json` e os arquivos do site respondem com `Access-Control-Allow-Origin: *`. Isso nunca vale para o `/admin`. A listagem só expõe nomes que já são públicos pela URL.
 
+## Times (gestão de acesso no painel)
+
+No `/admin`, o menu lateral ganha o item **Times** (só para admins), que abre `/admin/times`:
+
+| Ação | O que acontece |
+|---|---|
+| **Novo time** | Cria a pasta `/srv/<time>/` e um `.time.json` com nome e cota |
+| **Transformar em time** | Marca uma pasta que já existe como time, sem mexer nos arquivos |
+| **Adicionar pessoa** | Cria o usuário com escopo `/<time>` e permissão de editor. A senha é gerada e exibida uma vez |
+| **Usuário existente** | Move a pessoa para o time (troca o escopo) |
+| **Mover / Remover** | Troca de time ou apaga o usuário. Os arquivos do time ficam |
+| **Desfazer time** | Remove só o `.time.json`. As pessoas ficam "sem time" (`/_sem-time`) |
+
+Cada card mostra **pessoas**, **páginas** (pastas com `index.html`), **espaço em uso** e a barra de **cota**. A cota só **alerta** (80% e 100%) e não bloqueia uploads, porque o File Browser não tem esse controle.
+
+**Como funciona:**
+- Time = pasta de 1º nível com `.time.json`. Dotfiles respondem 404 no site, então o arquivo não vaza.
+- Membro = usuário com aquele escopo. O File Browser restringe o painel à pasta.
+- A tela é estática e usa a API do File Browser com o token do admin logado. O item de menu é injetado pelo NGINX (`sub_filter`) com `conf/times/inject.js`.
+- O cadastro público de contas é **desligado a cada boot** (`--signup=false`).
+
+> Os times controlam **quem edita**. O site continua público: quem tem a URL vê qualquer página.
+
 ## Boas práticas de conteúdo
 
 - Cada pasta precisa de um `index.html` para abrir em `/pasta/`. `Index.html` e `INDEX.HTML` também funcionam.
@@ -190,7 +213,8 @@ static-pages/
 ├── conf/
 │   ├── entrypoint.sh          # startup
 │   ├── nginx/                 # default.conf + snippets
-│   └── branding/              # CSS, logo e ícones do /admin
+│   ├── branding/              # CSS, logo e ícones do /admin
+│   └── times/                 # tela /admin/times + item de menu
 ├── content/                   # páginas iniciais (seed de /srv)
 ├── proxy/                     # Caddy opcional (desativado)
 ├── docs/img/                  # imagens deste README

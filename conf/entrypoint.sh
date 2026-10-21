@@ -112,8 +112,17 @@ else
     fi
 fi
 
-log "Aplicando baseURL=$BASEURL e branding..."
-"${FB[@]}" config set --baseurl "$BASEURL"     --branding.name "$BRANDING"     --branding.files /branding     --branding.disableExternal     --locale "${FB_LOCALE:-pt-br}" >/dev/null
+log "Aplicando baseURL=$BASEURL, branding e cadastro desligado..."
+# --signup=false: ninguém cria conta pela tela de login; usuários
+# só entram pelo admin (Configurações ou tela de Times). Reaplicado
+# a cada boot para não depender de lembrar de desmarcar na UI.
+"${FB[@]}" config set \
+    --baseurl "$BASEURL" \
+    --branding.name "$BRANDING" \
+    --branding.files /branding \
+    --branding.disableExternal \
+    --locale "${FB_LOCALE:-pt-br}" \
+    --signup=false >/dev/null
 
 
 # ------------------------------------------------------------

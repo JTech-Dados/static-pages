@@ -37,6 +37,7 @@ COPY content/                       /seed/
 COPY conf/nginx/default.conf   /etc/nginx/conf.d/default.conf
 COPY conf/nginx/snippets/      /etc/nginx/snippets/
 COPY conf/branding/            /branding/
+COPY conf/times/               /usr/share/static-pages/times/
 # CRLF (checkout no Windows) quebra o bash: normaliza por garantia
 COPY conf/entrypoint.sh        /usr/local/bin/entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /etc/nginx/snippets/*.conf /etc/nginx/conf.d/default.conf \
