@@ -137,6 +137,19 @@ def login(pg, user, password):
     pg.wait_for_load_state("networkidle")
 
 
+def login_token(pg, token):
+    """Entra no painel reaproveitando um token, sem chamar /api/login.
+
+    O NGINX limita o login a 5/min por IP (anti força-bruta); os testes
+    usam o token de uma sessão já aberta para não estourar esse limite.
+    """
+    pg.goto(f"{BASE}/admin/login")
+    pg.evaluate("t => localStorage.setItem('jwt', t)", token)
+    pg.goto(f"{BASE}/admin/files/")
+    pg.wait_for_url("**/admin/files/**")
+    pg.wait_for_load_state("networkidle")
+
+
 def in_container(*cmd):
     """Roda um comando no container (pula o teste se não houver docker)."""
     if not shutil.which("docker"):

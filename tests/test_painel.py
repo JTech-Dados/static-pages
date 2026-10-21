@@ -4,7 +4,7 @@ import json
 import requests
 from playwright.sync_api import expect
 
-from conftest import ADMIN_PASS, ADMIN_USER, BASE, Api, in_container, login
+from conftest import ADMIN_PASS, ADMIN_USER, BASE, Api, in_container, login, login_token
 
 
 def card_do_time(pg, nome):
@@ -42,9 +42,10 @@ def test_time_completo_pela_tela(page, browser, admin, uid):
     expect(card.locator(".members li", has_text=pessoa)).to_be_visible(timeout=15000)
 
     # membro: só a pasta do time, sem item Times, sem colunas, sem acesso à tela
+    membro = Api(pessoa, senha)
     ctx = browser.new_context(viewport={"width": 1280, "height": 800})
     m = ctx.new_page()
-    login(m, pessoa, senha)
+    login_token(m, membro.token)
     m.wait_for_timeout(800)
     assert m.locator("nav [data-sp-times]").count() == 0
     assert m.locator(".sp-team, .sp-who").count() == 0
@@ -53,7 +54,6 @@ def test_time_completo_pela_tela(page, browser, admin, uid):
     ctx.close()
 
     # a pasta do time não lista arquivos de outros times para o membro
-    membro = Api(pessoa, senha)
     nomes = [i["name"] for i in membro.req("GET", "/resources/").json().get("items", [])]
     assert "index.html" in nomes and not any(n.startswith("zz-") for n in nomes)
 
@@ -66,7 +66,7 @@ def test_autoria_e_colunas(page, admin, uid):
     admin.add_user(pessoa, senha, f"/{pasta}")
     Api(pessoa, senha).write("/relatorio.html", "<h1>oi</h1>")
 
-    login(page, ADMIN_USER, ADMIN_PASS)
+    login_token(page, admin.token)
     page.goto(f"{BASE}/admin/files/{pasta}/")
     row = page.locator("#listing .item[aria-label='relatorio.html']")
     expect(row.locator(".sp-who")).to_have_text(pessoa, timeout=10000)
@@ -80,7 +80,7 @@ def test_lixeira_restaurar_e_atividade(page, admin, uid):
     assert admin.delete(f"/{pasta}/sub/").status_code in (200, 204)
     assert requests.get(f"{BASE}/{pasta}/sub/b.txt", timeout=10).status_code == 404
 
-    login(page, ADMIN_USER, ADMIN_PASS)
+    login_token(page, admin.token)
     page.goto(f"{BASE}/admin/times#lixeira")
     linha = page.locator("#trash tr").filter(has=page.locator("td.path", has_text=f"/{pasta}/sub"))
     expect(linha).to_have_count(1, timeout=15000)
