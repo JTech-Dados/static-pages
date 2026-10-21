@@ -195,6 +195,22 @@ Cada card mostra **pessoas**, **páginas** (pastas com `index.html`), **espaço 
 
 > Os times controlam **quem edita**. O site continua público: quem tem a URL vê qualquer página.
 
+### Na home
+
+Uma pasta que é time vira uma **seção** própria. Suas subpastas aparecem como cards, e a página da raiz do time entra como "Página do time". O resto vai para "Outras páginas". Para isso, o `.time.json` **da raiz do time** é público (só nome e cota). Qualquer outro dotfile continua respondendo 404.
+
+### Colunas "Time" e "Alterado por" (só admins)
+
+A listagem de arquivos do painel ganha duas colunas:
+- **Time:** o time da pasta.
+- **Alterado por:** o último usuário que enviou, editou ou renomeou o arquivo, com data e hora no tooltip.
+
+O File Browser não guarda autoria. Quem registra é um **hook** (`conf/sp-autoria.sh`), disparado em `after_upload`, `after_save`, `after_rename`, `after_delete` e `after_copy`. Ele grava em:
+- `<pasta>/.autoria`: último autor por arquivo, lido pelo painel (no site, 404).
+- `/database/auditoria.log`: histórico completo, fora do site (`docker compose exec app tail /database/auditoria.log`).
+
+Arquivos enviados antes dos hooks existirem aparecem com "—". Membros não veem as colunas: eles ficam com "ocultar dotfiles" ligado e não podem ler nem apagar `.autoria` ou `.time.json`.
+
 ## Boas práticas de conteúdo
 
 - Cada pasta precisa de um `index.html` para abrir em `/pasta/`. `Index.html` e `INDEX.HTML` também funcionam.

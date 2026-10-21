@@ -68,6 +68,11 @@
       transition-property: border-color, box-shadow; transition-duration: 150ms; transition-timing-function: ease-out;
     }
     .search:focus { outline: none; border-color: #a1a1a1; box-shadow: 0 0 0 3px var(--link-soft); }
+    .sections { display: flex; flex-direction: column; gap: 40px; }
+    .pool-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--hairline); }
+    .pool-head h2 { font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.6px; }
+    .pool-count { font: 400 12px/16px var(--mono); color: var(--mute); font-variant-numeric: tabular-nums; }
+    .sections > .skeleton { height: 92px; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 16px; }
 
     .card {
@@ -147,7 +152,7 @@
       <span class="count" id="count" aria-live="polite">carregando…</span>
       <input class="search" id="search" type="search" placeholder="Filtrar páginas…" aria-label="Filtrar páginas">
     </div>
-    <div class="grid" id="grid">
+    <div class="sections" id="grid">
       <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
     </div>
   </main>
@@ -163,7 +168,8 @@
     // 3. Ignora pastas que começam com "_" ou "."
     // 4. Pasta com index.html (visto na listagem) vira link; pasta sem
     //    index mas com sub-páginas vira grupo
-    // 5. /<caminho>/meta.json (opcional):
+    // 5. Pasta de 1º nível com .time.json vira uma seção (pool) do time
+    // 6. /<caminho>/meta.json (opcional):
     //      { "titulo", "descricao", "tag", "ordem", "oculto" }
     // Todo texto entra via textContent (nomes vêm de upload).
     // ============================================================
@@ -300,17 +306,49 @@
 
     const matches = (q, values) => values.some((v) => v.toLowerCase().includes(q));
 
+    // Time de uma pasta de 1º nível: /<pasta>/.time.json (público, só nome)
+    async function loadTeam(name) {
+      try {
+        const r = await fetch(`/${encodeURIComponent(name)}/.time.json`, { cache: "no-cache" });
+        if (!r.ok || r.status === 204) return null;
+        const data = await r.json();
+        return data && typeof data.nome === "string" && data.nome.trim() ? data.nome.trim() : name;
+      } catch { return null; }
+    }
+
+    // Aplica o filtro a um item: devolve [item, subs visíveis] ou null
+    function filterItem(it, q) {
+      const subs = flatten(it);
+      const selfHit = !q || matches(q, [it.titulo, it.descricao, it.tag, it.name]);
+      const visibleSubs = selfHit ? subs : subs.filter((s) => matches(q, s.texto));
+      return selfHit || visibleSubs.length ? [it, visibleSubs] : null;
+    }
+    const countPages = (rows) => rows.reduce((n, [it, subs]) => n + (it.href ? 1 : 0) + subs.length, 0);
+
+    // Seções: um "pool" por time + "Outras páginas".
+    // Dentro de um time, cada subpasta vira um card; a página da raiz
+    // do time (se houver) entra como o primeiro card.
+    function buildSections() {
+      const sections = [];
+      const loose = [];
+      for (const it of items) {
+        if (!it.team) { loose.push(it); continue; }
+        const cards = [];
+        if (it.href) cards.push({ ...it, titulo: "Página do time", descricao: it.descricao, tag: "", children: [] });
+        cards.push(...it.children);
+        sections.push({ title: it.team, path: `/${it.name}/`, cards });
+      }
+      sections.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+      if (loose.length) sections.push({ title: sections.length ? "Outras páginas" : "", path: "", cards: loose });
+      return sections;
+    }
+
     function render() {
       const q = search.value.trim().toLowerCase();
-      const rows = [];
-      for (const it of items) {
-        const subs = flatten(it);
-        const selfHit = !q || matches(q, [it.titulo, it.descricao, it.tag, it.name]);
-        const visibleSubs = selfHit ? subs : subs.filter((s) => matches(q, s.texto));
-        if (selfHit || visibleSubs.length) rows.push([it, visibleSubs]);
-      }
-      const total = items.reduce((n, it) => n + (it.href ? 1 : 0) + flatten(it).length, 0);
-      const shown = rows.reduce((n, [it, subs]) => n + (it.href ? 1 : 0) + subs.length, 0);
+      const sections = buildSections();
+      const all = sections.flatMap((s) => s.cards.map((c) => filterItem(c, "")).filter(Boolean));
+      const total = countPages(all);
+      let shown = 0, delay = 0;
 
       grid.replaceChildren();
       if (!items.length) {
@@ -318,10 +356,25 @@
         box.append("Nenhuma página publicada ainda. No ", el("code", null, "/admin"),
           ", crie uma pasta e coloque um ", el("code", null, "index.html"), " dentro.");
         grid.append(box);
-      } else if (!rows.length) {
-        grid.append(el("div", "empty", "Nada encontrado para esse filtro."));
       } else {
-        rows.forEach(([it, subs], i) => grid.append(card(it, subs, i)));
+        for (const s of sections) {
+          const rows = s.cards.map((c) => filterItem(c, q)).filter(Boolean);
+          if (!rows.length) continue;
+          shown += countPages(rows);
+          const sec = el("section", "pool");
+          if (s.title) {
+            const head = el("div", "pool-head");
+            head.append(el("h2", null, s.title));
+            const n = countPages(rows);
+            head.append(el("span", "pool-count", `${n} ${n === 1 ? "página" : "páginas"}`));
+            sec.append(head);
+          }
+          const g = el("div", "grid");
+          rows.forEach(([it, subs]) => g.append(card(it, subs, delay++)));
+          sec.append(g);
+          grid.append(sec);
+        }
+        if (!shown) grid.append(el("div", "empty", "Nada encontrado para esse filtro."));
       }
       count.textContent = q ? `${shown} de ${total} páginas` : `${total} ${total === 1 ? "página" : "páginas"}`;
     }
@@ -329,7 +382,11 @@
     async function main() {
       try {
         const { dirs: top } = await listDir([]);
-        items = (await Promise.all(top.map((d) => scan([d.name])))).filter(Boolean).sort(byOrder);
+        const scanned = await Promise.all(top.map(async (d) => {
+          const [node, team] = await Promise.all([scan([d.name]), loadTeam(d.name)]);
+          return node ? { ...node, team } : null;
+        }));
+        items = scanned.filter(Boolean).sort(byOrder);
         render();
       } catch (err) {
         grid.replaceChildren();

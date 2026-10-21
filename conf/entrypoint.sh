@@ -122,7 +122,18 @@ log "Aplicando baseURL=$BASEURL, branding e cadastro desligado..."
     --branding.files /branding \
     --branding.disableExternal \
     --locale "${FB_LOCALE:-pt-br}" \
-    --signup=false >/dev/null
+    --signup=false \
+    --shell "sh -c" >/dev/null
+
+# Hooks de autoria (coluna "Alterado por" no painel). Idempotente:
+# só adiciona o que ainda não está registrado.
+log "Registrando hooks de autoria..."
+HOOKS="$("${FB[@]}" cmds ls 2>/dev/null || true)"
+for evento in after_upload after_save after_rename after_delete after_copy; do
+    if ! printf '%s\n' "$HOOKS" | grep -q "$evento.*sp-autoria"; then
+        "${FB[@]}" cmds add "$evento" "sp-autoria" >/dev/null
+    fi
+done
 
 
 # ------------------------------------------------------------

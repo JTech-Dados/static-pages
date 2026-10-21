@@ -154,6 +154,36 @@ nav .credits a {
   background: var(--canvas-soft);
 }
 
+/* ---------- Colunas extras (Time, Alterado por) — ver conf/times/inject.js ---------- */
+#listing.list.sp-cols .item .name     { width: 40%; }
+#listing.list.sp-cols .item .size     { width: 15%; }
+#listing.list.sp-cols .item .modified { width: 22%; }
+#listing.list.sp-cols .item .sp-who   { width: 23%; }
+#listing.list.sp-cols.sp-cols-team .item .name     { width: 34%; }
+#listing.list.sp-cols.sp-cols-team .item .size     { width: 13%; }
+#listing.list.sp-cols.sp-cols-team .item .modified { width: 19%; }
+#listing.list.sp-cols.sp-cols-team .item .sp-team  { width: 17%; }
+#listing.list.sp-cols.sp-cols-team .item .sp-who   { width: 17%; }
+#listing.list .item .sp-team,
+#listing.list .item .sp-who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--body);
+}
+#listing.list .item.header .sp-team,
+#listing.list .item.header .sp-who {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--mute);
+}
+@media (max-width: 736px) {
+  #listing.list .item .sp-team,
+  #listing.list .item .sp-who { display: none; }
+}
+
 /* ---------- Botões (primary = ink, secondary = canvas + hairline) ---------- */
 .button {
   font-weight: 500;

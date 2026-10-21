@@ -40,8 +40,9 @@ COPY conf/branding/            /branding/
 COPY conf/times/               /usr/share/static-pages/times/
 # CRLF (checkout no Windows) quebra o bash: normaliza por garantia
 COPY conf/entrypoint.sh        /usr/local/bin/entrypoint.sh
-RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /etc/nginx/snippets/*.conf /etc/nginx/conf.d/default.conf \
- && chmod +x /usr/local/bin/entrypoint.sh
+COPY conf/sp-autoria.sh        /usr/local/bin/sp-autoria
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /usr/local/bin/sp-autoria /etc/nginx/snippets/*.conf /etc/nginx/conf.d/default.conf \
+ && chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/sp-autoria
 
 
 # ============================================================
