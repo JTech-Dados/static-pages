@@ -1,78 +1,126 @@
-# static-pages
+<p align="center">
+  <img src="docs/img/banner.png" alt="static-pages — site estático + painel de arquivos em um container" width="100%">
+</p>
 
-NGINX servindo um site estático de `/srv` + File Browser em `/admin/` para editar os arquivos.
+<p align="center">
+  <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-171717"></a>
+  <img alt="Docker" src="https://img.shields.io/badge/docker-compose-0070f3?logo=docker&logoColor=white">
+  <img alt="NGINX 1.27" src="https://img.shields.io/badge/nginx-1.27-009639?logo=nginx&logoColor=white">
+  <img alt="File Browser 2.32" src="https://img.shields.io/badge/file%20browser-2.32-40c4ff">
+  <img alt="Healthcheck" src="https://img.shields.io/badge/healthcheck-%E2%9C%93-50e3c2">
+</p>
 
+<p align="center">
+  <b>Publique e edite um site estático pelo navegador.</b><br>
+  NGINX serve o site em <code>/</code> · File Browser edita os arquivos em <code>/admin</code> · tudo num container só.
+</p>
+
+---
+
+## Por quê
+
+Página interna, protótipo HTML, relatório exportado, landing de campanha: muita coisa só precisa de **um lugar para jogar um `.html` e ter uma URL**. Mas cada atualização acaba exigindo SSH, `scp` ou um pipeline.
+
+O **static-pages** resolve isso com um container que:
+
+- 🌐 **serve** qualquer pasta como site (`/relatorio/` → `relatorio/index.html`);
+- 🗂️ **edita** os arquivos pelo navegador (upload, renomear, editar HTML) em `/admin`;
+- 🔒 **isola** o site do painel, para que um upload malicioso não roube a sessão do admin;
+- 🚀 **sobe** com `docker compose up -d` e fica atrás do proxy que você já tem.
+
+## Como fica
+
+| Site (`/`) | Painel (`/admin`) |
+|---|---|
+| <img src="docs/img/site.png" alt="Página inicial do site"> | <img src="docs/img/admin.png" alt="Listagem de arquivos no File Browser"> |
+| **Login** | **404** |
+| <img src="docs/img/login.png" alt="Tela de login do painel"> | <img src="docs/img/404.png" alt="Página 404"> |
+
+## Início rápido
+
+```bash
+git clone https://github.com/JTech-Dados/static-pages.git
+cd static-pages
+cp .env.example .env              # defina FB_ADMIN_PASSWORD (12+ caracteres)
+docker compose up -d --build
 ```
-static-pages/
-├── Dockerfile
-├── docker-compose.yml                # usado local e na VPS
-├── subir.bat                         # atalho Windows p/ compose
-├── proxy/                            # [DESATIVADO] Caddy p/ HTTPS
-│   ├── docker-compose.yml  Caddyfile  .env.example
-├── .env.example                      # copie para .env
-├── conf/
-│   ├── entrypoint.sh                 # startup (tini é o PID 1)
-│   └── nginx/
-│       ├── default.conf
-│       └── snippets/
-│           ├── fb-proxy.conf         # proxy do File Browser
-│           └── security-headers.conf
-└── content/                          # copiado para /srv se não houver index.html
-    ├── index.html  404.html  robots.txt  favicon.svg
+
+- Site: <http://localhost:8080/>
+- Painel: <http://localhost:8080/admin/>
+
+> Sem `FB_ADMIN_PASSWORD`, uma senha aleatória é gerada e exibida **uma única vez** no log:
+> `docker compose logs app | grep senha`
+
+**No Windows:** dê dois cliques em `subir.bat` (ou rode `subir.bat 9000` para usar outra porta).
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    U([Visitante]) -->|HTTPS| P[Proxy da VPS<br/>NGINX / Traefik / Caddy]
+    P -->|127.0.0.1:8080| N
+
+    subgraph C[container static-pages]
+        direction LR
+        N[NGINX :80<br/>rate limit · gzip · cache] -->|/| S[(/srv<br/>site estático)]
+        N -->|/admin| F[File Browser<br/>127.0.0.1:8080]
+        F -->|lê e grava| S
+        F --- D[(/database<br/>usuários)]
+        T[tini · PID 1] -.supervisiona.-> N & F
+    end
 ```
 
-## Variáveis de ambiente
+| Peça | Papel |
+|---|---|
+| **NGINX** | Serve `/srv`, faz proxy de `/admin`, limita tentativas de login, bloqueia dotfiles, comprime e cacheia |
+| **File Browser** | Interface de arquivos. Escuta **só** em `127.0.0.1` e roda como usuário `nginx`, para que os uploads saiam legíveis pelo servidor |
+| **tini** | PID 1: repassa sinais e recolhe zumbis. Se um processo cai, o container sai com o código de erro e o Docker reinicia |
+| **entrypoint.sh** | Popula `/srv`, corrige donos de arquivos, cria o admin, aplica branding e idioma |
+
+## Segurança
+
+| Proteção | Como |
+|---|---|
+| **Site isolado do painel** | CSP `sandbox` em `/`: páginas enviadas rodam numa origem opaca e não leem o token do admin (`SITE_SANDBOX`) |
+| **Força bruta** | `/admin/api/login` limitado a 5 tentativas/min por IP → HTTP 429 |
+| **Senha** | Aleatória no 1º boot ou vinda do `.env`. Nunca fica fixa na imagem |
+| **Dotfiles** | `.env`, `.git` e afins enviados por engano respondem 404 |
+| **Headers** | `nosniff`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, `server_tokens off` |
+| **Superfície** | Só a porta 80 do container é publicada; o File Browser não é acessível de fora |
+| **Versões** | `nginx` e `filebrowser` fixados por tag, nada de `latest` |
+
+> ⚠️ `SITE_SANDBOX=true` também tira `localStorage` e cookies do **site**. Se as suas páginas precisarem deles, use `false` **e** sirva o admin num subdomínio separado.
+
+## Configuração
+
+Todas as chaves ficam em [`.env.example`](.env.example).
 
 | Variável | Padrão | O que faz |
 |---|---|---|
-| `FB_ADMIN_USER` | `admin` | Usuário admin criado no 1º boot |
-| `FB_ADMIN_PASSWORD` | *(vazio)* | Se vazia, gera senha aleatória e mostra **uma vez** no log. Se definida, é sincronizada a cada boot |
-| `FB_SYNC_ADMIN_PASSWORD` | `true` | `false` = não sobrescrever a senha trocada pela UI |
-| `FB_BASEURL` | `/admin` | Base do File Browser (**se mudar, ajuste também `conf/nginx/default.conf`**) |
-| `FB_BRANDING_NAME` | `Static Pages` | Nome exibido no File Browser |
-| `SITE_SANDBOX` | `true` | Isola o site do `/admin` via CSP `sandbox` (ver abaixo) |
+| `FB_ADMIN_USER` | `admin` | Usuário criado no 1º boot |
+| `FB_ADMIN_PASSWORD` | *(vazio)* | Vazia = gera aleatória. Definida = sincronizada a cada boot |
+| `FB_SYNC_ADMIN_PASSWORD` | `true` | `false` mantém a senha trocada pela interface |
+| `FB_BASEURL` | `/admin` | Caminho do painel (ajuste também `conf/nginx/default.conf`) |
+| `FB_BRANDING_NAME` | `Static Pages` | Nome exibido no painel |
+| `FB_LOCALE` | `pt-br` | Idioma de novos usuários |
+| `SITE_SANDBOX` | `true` | Isolamento do site (ver Segurança) |
+| `HTTP_PORT` | `8080` | Porta publicada no host |
+| `HTTP_BIND` | `0.0.0.0` | Use `127.0.0.1` atrás de um proxy na mesma máquina |
+| `APK_HTTP` | `false` | `true` só em rede com inspeção SSL que quebra o build |
 
-> Versões recentes do File Browser exigem senha com no mínimo 12 caracteres.
+## Deploy na VPS
 
-## Volumes
-
-- `/srv`: conteúdo do site
-- `/database`: banco do File Browser (usuários, config)
-
-## Segurança: `SITE_SANDBOX`
-
-Arquivos enviados pelo File Browser são servidos na **mesma origem** do `/admin`, e o File Browser guarda o token no `localStorage`. Um `.html` malicioso enviado por upload poderia roubar a sessão de quem o abrisse.
-
-Com `SITE_SANDBOX=true`, as páginas do site rodam numa origem opaca e não acessam storage/cookies do admin. Efeito colateral: o **site** também perde `localStorage`/cookies próprios. Se precisar deles, defina `SITE_SANDBOX=false` **e** sirva o admin em outro subdomínio (a solução definitiva).
-
-## Outros comportamentos
-
-- Login (`/admin/api/login`) limitado a 5 tentativas/min por IP (HTTP 429).
-- IP real lido de `X-Forwarded-For` vindo de redes privadas (proxy do Coolify).
-- Dotfiles (`.env`, `.git`…) respondem 404.
-- gzip; assets com cache de 7 dias; HTML com `no-cache`.
-- `HEALTHCHECK` verifica `/healthz` e `/admin/`.
-- Se o NGINX ou o File Browser morrer, o container sai com o código de erro e o orquestrador reinicia.
-
-## Rodar local (Windows)
-
-Dois cliques em `subir.bat` (ou `subir.bat 9000` para outra porta). Ele cria o `.env` a partir do `.env.example` se faltar e roda `docker compose up -d --build`.
-
-## Subir na VPS (atrás do NGINX já existente)
+Com um NGINX já cuidando do HTTPS no host:
 
 ```bash
-cd static-pages
-cp .env.example .env && nano .env      # FB_ADMIN_PASSWORD (12+), HTTP_BIND=127.0.0.1, HTTP_PORT=8080
+# .env: HTTP_BIND=127.0.0.1, HTTP_PORT=8080, FB_ADMIN_PASSWORD forte
 docker compose up -d --build
-docker compose logs -f
 ```
-
-No NGINX da VPS (o certificado/HTTPS continua com ele):
 
 ```nginx
 server {
     server_name meusite.com.br;
-    # ... listen 443 ssl / certificados que você já usa ...
+    # listen 443 ssl + certificados que você já usa
 
     client_max_body_size 0;          # uploads grandes no /admin
     proxy_request_buffering off;
@@ -92,9 +140,61 @@ server {
 }
 ```
 
-> O app confia no `X-Forwarded-For` vindo de redes privadas (rede do Docker). Com o NGINX no host, a conexão chega pelo gateway do Docker, que é privado — o IP real do cliente é preservado.
+Sem proxy no host? A pasta [`proxy/`](proxy/) tem um Caddy com HTTPS automático, hoje desativado.
 
-- Atualizar: `git pull && docker compose up -d --build`.
-- Dados: volumes `static-pages_srv` e `static-pages_db`.
-- Backup: `docker run --rm -v static-pages_srv:/s -v static-pages_db:/d -v "$PWD":/b alpine tar czf /b/backup.tgz /s /d`
-- A pasta `proxy/` (Caddy) está desativada; serve só se um dia trocar o NGINX da VPS.
+### Operação
+
+| Tarefa | Comando |
+|---|---|
+| Atualizar | `git pull && docker compose up -d --build` |
+| Logs | `docker compose logs -f` |
+| Backup | `docker run --rm -v static-pages_srv:/s -v static-pages_db:/d -v "$PWD":/b alpine tar czf /b/backup.tgz /s /d` |
+| Parar | `docker compose down` (os volumes são preservados) |
+
+## Boas práticas de conteúdo
+
+- Cada pasta precisa de um `index.html` para abrir em `/pasta/`. `Index.html` e `INDEX.HTML` também funcionam.
+- `/pagina` serve `pagina.html` automaticamente.
+- Páginas novas do `content/` só entram num `/srv` vazio. O conteúdo existente nunca é sobrescrito.
+
+## Estrutura
+
+```
+static-pages/
+├── Dockerfile                 # imagem: nginx + filebrowser + tini
+├── docker-compose.yml         # local e VPS
+├── .env.example               # todas as variáveis
+├── subir.bat                  # atalho Windows
+├── DESIGN.md                  # contrato visual (tokens, tipografia, guardrails)
+├── conf/
+│   ├── entrypoint.sh          # startup
+│   ├── nginx/                 # default.conf + snippets
+│   └── branding/              # CSS, logo e ícones do /admin
+├── content/                   # páginas iniciais (seed de /srv)
+├── proxy/                     # Caddy opcional (desativado)
+├── docs/img/                  # imagens deste README
+└── divulgacao/                # scripts que geram banner, prints e carrossel
+```
+
+## Alternativas
+
+Pesquisei projetos que juntam NGINX e File Browser. Os que existem são pequenos experimentos, sem documentação ou endurecimento:
+
+| Projeto | Diferença |
+|---|---|
+| [`filebrowser/filebrowser`](https://github.com/filebrowser/filebrowser) | Só o gerenciador de arquivos. Não serve as páginas como site |
+| Caddy `file_server browse` | Lista e serve arquivos, mas não tem upload nem edição |
+| Coolify / Netlify / Vercel | Deploy via Git ou CLI. Ótimos, mas não para "subir um HTML pelo navegador" |
+| **static-pages** | Site + edição pelo navegador + isolamento entre os dois, num container |
+
+## Regenerar as imagens
+
+```bash
+python divulgacao/banner.py                                      # docs/img/banner.png
+FB_USER=admin FB_PASS=... python divulgacao/screenshots.py       # prints (requer playwright)
+python divulgacao/build.py                                       # carrossel 1080×1350 + PDF
+```
+
+## Licença
+
+[MIT](LICENSE). Use, modifique e distribua à vontade.
