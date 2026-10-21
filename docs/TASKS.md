@@ -21,9 +21,9 @@
 
 | Data | Entrega | Commit |
 |---|---|---|
-| 2026-10-21 | Lixeira, backup, atividade, visitas, modelo de time, testes E2E + CI | `11ca70c`, `74e6dd8` |
-| 2026-10-21 | Home por times; colunas Time/Alterado por | `2543e0e` |
-| 2026-10-21 | Tela de Times; cadastro público desligado | `478fc49` |
-| 2026-10-21 | Menu automático da home (até 3 níveis) | `7062b1e` |
-| 2026-10-21 | README, prints, licença MIT | `d27569c` |
-| 2026-10-21 | Container base (NGINX + File Browser) | `1a0ea06` |
+| 2026-10-21 | Lixeira, backup, atividade, visitas, modelo de time, testes E2E + CI | `b3849a6`, `7e2e6d8` |
+| 2026-10-21 | Home por times; colunas Time/Alterado por | `72eb8ca` |
+| 2026-10-21 | Tela de Times; cadastro público desligado | `b2e352d` |
+| 2026-10-21 | Menu automático da home (até 3 níveis) | `0072e5d` |
+| 2026-10-21 | README, prints, licença MIT | `81f824b` |
+| 2026-10-21 | Container base (NGINX + File Browser) | `1c9a60a` |

@@ -14,6 +14,8 @@
 - **2026-10-21 — Auditoria protegida por `auth_request` na própria API.** `/admin/api/users` só devolve 200 para admin — vira o "porteiro" sem servidor extra.
 - **2026-10-21 — Cota só alerta.** O File Browser não bloqueia upload por tamanho; bloquear exigiria um serviço no meio.
 
+- **2026-10-21 — Repo público; commits com o e-mail noreply do GitHub.** Os commits saíam com o e-mail corporativo, que expunha o nome da empresa. O histórico foi reescrito (`git filter-branch`, os hashes mudaram) e o repo local usa `user.email = <id>+djorshuam@users.noreply.github.com`. Antes de commitar de outra máquina, configure o mesmo e-mail.
+
 ## Erros e armadilhas
 
 - **2026-10-15 — Regex de assets roubava o `/admin`.** `location ~* \.(js|css…)` tem prioridade sobre o prefixo `/admin/`; os JS do painel caíam no site. Correção: `location ^~ /admin/`.

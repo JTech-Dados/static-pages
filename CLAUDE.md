@@ -38,6 +38,7 @@ Arquivos em `content/` só entram num `/srv` vazio. Para testar uma mudança na 
 
 - Formato: `<tipo>: <descrição>` em português (`feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`, `ci`). Corpo explica o **porquê**.
 - **Sem linha de coautoria/atribuição** (preferência do dono do repo).
+- **Autor = e-mail noreply do GitHub**, nunca o corporativo (o repo é público). Confira com `git config user.email` antes do primeiro commit numa máquina nova.
 - Nunca commitar `.env`, `proxy/.env`, `backups/`, `*.db` ou prints com dados reais.
 - O CI (`.github/workflows/ci.yml`) roda a suíte a cada push; não suba para a VPS com ❌.
 
