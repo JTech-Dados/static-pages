@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Static Pages">
+  <!-- Static Pages: folhas empilhadas + canto dobrado + "/" de rota -->
+  <rect width="32" height="32" rx="7" fill="#171717"/>
+  <rect x="11.5" y="6.5" width="13" height="16" rx="1.5" fill="#ffffff" fill-opacity=".28"/>
+  <path d="M8.5 10.5a1.5 1.5 0 0 1 1.5-1.5h7.5l4 4v11.5a1.5 1.5 0 0 1-1.5 1.5H10a1.5 1.5 0 0 1-1.5-1.5z" fill="#ffffff"/>
+  <path d="M17.5 9v2.5a1.5 1.5 0 0 0 1.5 1.5h2.5z" fill="#a1a1a1"/>
+  <path d="M12.6 22.2l3.6-7.4" stroke="#171717" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

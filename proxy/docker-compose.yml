@@ -1,0 +1,45 @@
+# ############################################################
+# [DESATIVADO] Não usado por enquanto — a VPS já tem um NGINX
+# como proxy reverso. Mantido para referência futura.
+# ############################################################
+# ============================================================
+# Proxy reverso (Caddy) — HTTPS automático via Let's Encrypt
+#
+# Pré-requisitos na VPS:
+#   - DNS do DOMAIN apontando para o IP da VPS
+#   - portas 80 e 443 liberadas no firewall
+#   - rede compartilhada:  docker network create web
+#
+# Subir:  cd proxy && cp .env.example .env && docker compose up -d
+# ============================================================
+name: proxy
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: caddy
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # certificados — NÃO apague
+      - caddy_config:/config
+    networks:
+      - web
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  web:
+    external: true

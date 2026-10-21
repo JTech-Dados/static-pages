@@ -1,0 +1,55 @@
+# ============================================================
+# static-pages — NGINX (site) + File Browser (/admin)
+#
+# Subir:   docker compose up -d --build
+# Logs:    docker compose logs -f
+# Parar:   docker compose down          (volumes são preservados)
+#
+# Variáveis vêm do .env (copie de .env.example).
+# ============================================================
+name: static-pages
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        APK_HTTP: ${APK_HTTP:-false}
+    image: static-pages:latest
+    container_name: static-pages
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # Atrás de um proxy reverso na mesma VPS (Caddy/Traefik/NGINX),
+      # use HTTP_BIND=127.0.0.1 para não expor a porta direto.
+      - "${HTTP_BIND:-0.0.0.0}:${HTTP_PORT:-8080}:80"
+    volumes:
+      - srv:/srv
+      - db:/database
+    networks:
+      - web
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  srv:
+  db:
+
+# ------------------------------------------------------------
+# Rede "web"
+#
+# Hoje: rede própria, criada pelo compose. O NGINX da VPS (fora
+# do Docker) acessa o app por 127.0.0.1:HTTP_PORT.
+#
+# [DESATIVADO] Proxy Caddy em container (pasta proxy/): para
+# compartilhar a rede com ele, rode `docker network create web`
+# e troque o bloco abaixo por:
+#   web:
+#     external: true
+# ------------------------------------------------------------
+networks:
+  web:
+    name: static-pages-web

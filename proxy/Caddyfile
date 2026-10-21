@@ -1,0 +1,18 @@
+# DOMAIN e ACME_EMAIL vêm do proxy/.env
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# "static-pages" = container_name do app, na rede "web"
+	reverse_proxy static-pages:80
+
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+}
+
+# www -> sem www
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

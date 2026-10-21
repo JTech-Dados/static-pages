@@ -1,0 +1,12 @@
+.git
+README.md
+*.db
+.env
+.env.*
+subir.bat
+docker-compose.yml
+.gitignore
+.gitattributes
+.dockerignore
+proxy/
+divulgacao/

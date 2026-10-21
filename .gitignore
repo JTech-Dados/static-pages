@@ -1,0 +1,8 @@
+.env
+*.db
+proxy/.env
+
+# saídas geradas por divulgacao/build.py
+divulgacao/*.png
+divulgacao/*.pdf
+divulgacao/*.html
