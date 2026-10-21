@@ -1,42 +1,78 @@
+<a id="topo"></a>
+
 <p align="center">
   <img src="docs/img/banner.png" alt="static-pages — site estático + painel de arquivos em um container" width="100%">
 </p>
 
 <p align="center">
+  <a href="https://github.com/JTech-Dados/static-pages/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JTech-Dados/static-pages/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="Licença MIT" src="https://img.shields.io/badge/licen%C3%A7a-MIT-171717"></a>
-  <img alt="Docker" src="https://img.shields.io/badge/docker-compose-0070f3?logo=docker&logoColor=white">
+  <img alt="Docker Compose" src="https://img.shields.io/badge/docker-compose-0070f3?logo=docker&logoColor=white">
   <img alt="NGINX 1.27" src="https://img.shields.io/badge/nginx-1.27-009639?logo=nginx&logoColor=white">
   <img alt="File Browser 2.32" src="https://img.shields.io/badge/file%20browser-2.32-40c4ff">
-  <img alt="Healthcheck" src="https://img.shields.io/badge/healthcheck-%E2%9C%93-50e3c2">
+  <img alt="Testes E2E" src="https://img.shields.io/badge/testes-pytest%20%2B%20playwright-50e3c2">
 </p>
 
 <p align="center">
-  <b>Publique e edite um site estático pelo navegador.</b><br>
-  NGINX serve o site em <code>/</code> · File Browser edita os arquivos em <code>/admin</code> · tudo num container só.
+  <b>Publique e edite páginas HTML pelo navegador. Um container, pronto para VPS.</b><br>
+  NGINX serve o site em <code>/</code> · File Browser edita em <code>/admin</code> · times, lixeira, auditoria e visitas incluídos.
+</p>
+
+<p align="center">
+  <a href="#-início-rápido">Início rápido</a> ·
+  <a href="#-recursos">Recursos</a> ·
+  <a href="#️-telas">Telas</a> ·
+  <a href="#-arquitetura">Arquitetura</a> ·
+  <a href="#-segurança">Segurança</a> ·
+  <a href="docs/">Docs</a>
 </p>
 
 ---
 
-## Por quê
+<details>
+<summary><b>Sumário</b></summary>
 
-Página interna, protótipo HTML, relatório exportado, landing de campanha: muita coisa só precisa de **um lugar para jogar um `.html` e ter uma URL**. Mas cada atualização acaba exigindo SSH, `scp` ou um pipeline.
+- [Por quê](#-por-quê)
+- [Recursos](#-recursos)
+- [Início rápido](#-início-rápido)
+- [Telas](#️-telas)
+- [Arquitetura](#-arquitetura)
+- [Segurança](#-segurança)
+- [Configuração](#️-configuração)
+- [Deploy na VPS](#-deploy-na-vps)
+- [Operação](#️-operação)
+- [Conteúdo: home, times e meta.json](#-conteúdo-home-times-e-metajson)
+- [Testes e CI](#-testes-e-ci)
+- [FAQ](#-faq)
+- [Roadmap](#️-roadmap)
+- [Contribuindo](#-contribuindo)
+- [Licença](#-licença)
 
-O **static-pages** resolve isso com um container que:
+</details>
 
-- 🌐 **serve** qualquer pasta como site (`/relatorio/` → `relatorio/index.html`);
-- 🗂️ **edita** os arquivos pelo navegador (upload, renomear, editar HTML) em `/admin`;
-- 🔒 **isola** o site do painel, para que um upload malicioso não roube a sessão do admin;
-- 🚀 **sobe** com `docker compose up -d` e fica atrás do proxy que você já tem.
+## 💡 Por quê
 
-## Como fica
+Dashboard exportado, relatório, protótipo, landing de campanha: muita coisa só precisa de **um lugar para jogar um `.html` e ter uma URL**. Na prática, cada atualização vira um pedido de SSH, `scp` ou pipeline.
 
-| Site (`/`) | Painel (`/admin`) |
-|---|---|
-| <img src="docs/img/site.png" alt="Página inicial do site"> | <img src="docs/img/admin.png" alt="Listagem de arquivos no File Browser"> |
-| **Login** | **404** |
-| <img src="docs/img/login.png" alt="Tela de login do painel"> | <img src="docs/img/404.png" alt="Página 404"> |
+O **static-pages** é esse lugar. Quem publica usa o navegador, quem consome recebe um link, e o admin controla quem edita o quê, vê quem mudou o quê e recupera o que foi apagado.
 
-## Início rápido
+## ✨ Recursos
+
+| | Recurso | Detalhe |
+|---|---|---|
+| 🌐 | **Site estático** | qualquer pasta vira página (`/relatorio/` → `relatorio/index.html`); `/pagina` serve `pagina.html` |
+| 🗂️ | **Painel de arquivos** | upload, edição de HTML, renomear e mover em `/admin` (File Browser, em pt-br, com tema próprio) |
+| 🧭 | **Home automática** | cards montados a partir das pastas (até 3 níveis), divididos **por time**, com filtro e contador de visitas |
+| 👥 | **Times** | cada time é uma pasta; membros só enxergam e editam a pasta do seu time |
+| ✍️ | **Autoria** | colunas "Time" e "Alterado por" na listagem do painel |
+| 🗑️ | **Lixeira** | nada apagado some de vez: restaura em 1 clique por 30 dias |
+| 📜 | **Atividade** | histórico de envios, edições e exclusões, com filtros (só admin) |
+| 📈 | **Visitas** | acessos por página e por time nos últimos 30 dias |
+| 💾 | **Backup diário** | `tar.gz` dos dados, mantém os últimos 7 |
+| 🔒 | **Segurança** | site isolado do painel (CSP sandbox), rate limit no login, dotfiles bloqueados, cadastro público desligado |
+| ✅ | **Testes E2E + CI** | 13 testes (pytest + Playwright) a cada push |
+
+## 🚀 Início rápido
 
 ```bash
 git clone https://github.com/JTech-Dados/static-pages.git
@@ -45,70 +81,107 @@ cp .env.example .env              # defina FB_ADMIN_PASSWORD (12+ caracteres)
 docker compose up -d --build
 ```
 
-- Site: <http://localhost:8080/>
-- Painel: <http://localhost:8080/admin/>
+| | Endereço |
+|---|---|
+| Site | <http://localhost:8080/> |
+| Painel | <http://localhost:8080/admin/> |
+| Times | <http://localhost:8080/admin/times> |
 
-> Sem `FB_ADMIN_PASSWORD`, uma senha aleatória é gerada e exibida **uma única vez** no log:
-> `docker compose logs app | grep senha`
+> Sem `FB_ADMIN_PASSWORD`, uma senha aleatória é gerada e exibida **uma única vez** no log: `docker compose logs app | grep senha`
 
-**No Windows:** dê dois cliques em `subir.bat` (ou rode `subir.bat 9000` para usar outra porta).
+**No Windows:** dois cliques em `subir.bat` (ou `subir.bat 9000` para outra porta).
 
-## Arquitetura
+<p align="right"><a href="#topo">↑ voltar ao topo</a></p>
+
+## 🖼️ Telas
+
+<table>
+  <tr>
+    <td width="50%"><b>Home</b>: páginas por time, filtro e visitas<br><img src="docs/img/site.png" alt="Home com cards das páginas publicadas"></td>
+    <td width="50%"><b>Painel</b>: arquivos com colunas Time e Alterado por<br><img src="docs/img/admin.png" alt="Listagem de arquivos no painel"></td>
+  </tr>
+  <tr>
+    <td><b>Times</b>: pessoas, páginas, espaço, cota e visitas<br><img src="docs/img/times.png" alt="Tela de gestão de times"></td>
+    <td><b>Atividade</b>: quem fez o quê e quando<br><img src="docs/img/atividade.png" alt="Histórico de atividade"></td>
+  </tr>
+  <tr>
+    <td><b>Lixeira</b>: restaurar ou apagar de vez<br><img src="docs/img/lixeira.png" alt="Lixeira com restauração"></td>
+    <td><b>Login</b><br><img src="docs/img/login.png" alt="Tela de login do painel"></td>
+  </tr>
+</table>
+
+<sub>Imagens com dados fictícios, geradas por <code>divulgacao/screenshots.py</code> e <code>divulgacao/screenshots_painel.py</code>.</sub>
+
+## 🧱 Arquitetura
 
 ```mermaid
 flowchart LR
-    U([Visitante]) -->|HTTPS| P[Proxy da VPS<br/>NGINX / Traefik / Caddy]
+    U([Visitante]) -->|HTTPS| P[Proxy da VPS]
     P -->|127.0.0.1:8080| N
 
     subgraph C[container static-pages]
         direction LR
-        N[NGINX :80<br/>rate limit · gzip · cache] -->|/| S[(/srv<br/>site estático)]
-        N -->|/admin| F[File Browser<br/>127.0.0.1:8080]
+        N[NGINX :80] -->|/| S[(/srv · site)]
+        N -->|/admin| F[File Browser]
+        N -->|/admin/times| T[Tela de Times]
         F -->|lê e grava| S
-        F --- D[(/database<br/>usuários)]
-        T[tini · PID 1] -.supervisiona.-> N & F
+        F -->|hooks| H[autoria · lixeira]
+        F --- D[(/database · usuários e logs)]
     end
+    B[container backup] -.lê.-> S & D
 ```
 
 | Peça | Papel |
 |---|---|
-| **NGINX** | Serve `/srv`, faz proxy de `/admin`, limita tentativas de login, bloqueia dotfiles, comprime e cacheia |
-| **File Browser** | Interface de arquivos. Escuta **só** em `127.0.0.1` e roda como usuário `nginx`, para que os uploads saiam legíveis pelo servidor |
-| **tini** | PID 1: repassa sinais e recolhe zumbis. Se um processo cai, o container sai com o código de erro e o Docker reinicia |
-| **entrypoint.sh** | Popula `/srv`, corrige donos de arquivos, cria o admin, aplica branding e idioma |
+| **NGINX** | serve o site, faz proxy do painel, limita login, bloqueia internos, registra visitas |
+| **File Browser** | interface de arquivos e API; escuta só em `127.0.0.1` |
+| **Hooks** | `sp-autoria` (quem alterou) e `sp-lixeira` (cópia antes de apagar) |
+| **Tela de Times** | página estática que usa a API do File Browser com o token do admin |
+| **Backup** | serviço separado, lê os volumes em modo somente leitura |
 
-## Segurança
+Detalhes de rotas, volumes e fluxos: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
-| Proteção | Como |
+## 🔒 Segurança
+
+| Ameaça | Proteção |
 |---|---|
-| **Site isolado do painel** | CSP `sandbox` em `/`: páginas enviadas rodam numa origem opaca e não leem o token do admin (`SITE_SANDBOX`) |
-| **Força bruta** | `/admin/api/login` limitado a 5 tentativas/min por IP → HTTP 429 |
-| **Senha** | Aleatória no 1º boot ou vinda do `.env`. Nunca fica fixa na imagem |
-| **Dotfiles** | `.env`, `.git` e afins enviados por engano respondem 404 |
-| **Headers** | `nosniff`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`, `server_tokens off` |
-| **Superfície** | Só a porta 80 do container é publicada; o File Browser não é acessível de fora |
-| **Versões** | `nginx` e `filebrowser` fixados por tag, nada de `latest` |
+| HTML enviado por upload rouba a sessão do admin | CSP `sandbox` no site: páginas rodam em origem opaca e não leem o token do painel |
+| Força bruta no login | 5 tentativas/min por IP → HTTP 429 |
+| Conta criada por estranhos | cadastro público desligado a cada boot |
+| Vazamento de `.env`, `.git`, logs | dotfiles, `/_lixeira/` e `/_backup/` respondem 404 |
+| Membro vendo outro time | escopo por usuário no File Browser; tela de Times e auditoria só para admin |
+| Path traversal | NGINX normaliza o caminho; testado com `../`, `%2e%2e` e afins |
+| Conteúdo de upload injetando HTML na home | nomes e `meta.json` entram só via `textContent` |
 
-> ⚠️ `SITE_SANDBOX=true` também tira `localStorage` e cookies do **site**. Se as suas páginas precisarem deles, use `false` **e** sirva o admin num subdomínio separado.
+> ⚠️ O site é **público** para quem tem a URL: os times controlam **quem edita**, não quem vê. Veja o [Roadmap](#️-roadmap).
 
-## Configuração
+Política de reporte: **[SECURITY.md](SECURITY.md)** · Regras inegociáveis: **[docs/RULES.md](docs/RULES.md)**.
 
-Todas as chaves ficam em [`.env.example`](.env.example).
+## ⚙️ Configuração
+
+Todas as variáveis ficam em [`.env.example`](.env.example).
+
+<details>
+<summary><b>Tabela de variáveis</b></summary>
 
 | Variável | Padrão | O que faz |
 |---|---|---|
-| `FB_ADMIN_USER` | `admin` | Usuário criado no 1º boot |
-| `FB_ADMIN_PASSWORD` | *(vazio)* | Vazia = gera aleatória. Definida = sincronizada a cada boot |
+| `FB_ADMIN_USER` | `admin` | usuário criado no 1º boot |
+| `FB_ADMIN_PASSWORD` | *(vazio)* | vazia = gera aleatória; definida = sincronizada a cada boot |
 | `FB_SYNC_ADMIN_PASSWORD` | `true` | `false` mantém a senha trocada pela interface |
-| `FB_BASEURL` | `/admin` | Caminho do painel (ajuste também `conf/nginx/default.conf`) |
-| `FB_BRANDING_NAME` | `Static Pages` | Nome exibido no painel |
-| `FB_LOCALE` | `pt-br` | Idioma de novos usuários |
-| `SITE_SANDBOX` | `true` | Isolamento do site (ver Segurança) |
-| `HTTP_PORT` | `8080` | Porta publicada no host |
-| `HTTP_BIND` | `0.0.0.0` | Use `127.0.0.1` atrás de um proxy na mesma máquina |
+| `FB_BASEURL` | `/admin` | caminho do painel (ajuste também `conf/nginx/default.conf`) |
+| `FB_BRANDING_NAME` | `Static Pages` | nome exibido no painel |
+| `FB_LOCALE` | `pt-br` | idioma de novos usuários |
+| `SITE_SANDBOX` | `true` | isolamento do site (ver Segurança) |
+| `HTTP_PORT` / `HTTP_BIND` | `8080` / `0.0.0.0` | porta publicada; use `127.0.0.1` atrás de proxy |
+| `LIXEIRA_DIAS` | `30` | dias até apagar de vez o que está na lixeira |
+| `VISITAS_DIAS` | `30` | janela do contador de visitas |
+| `BACKUP_HORA` / `BACKUP_MANTER` | `3` / `7` | horário (Brasília) e quantidade de backups |
 | `APK_HTTP` | `false` | `true` só em rede com inspeção SSL que quebra o build |
 
-## Deploy na VPS
+</details>
+
+## 🌍 Deploy na VPS
 
 Com um NGINX já cuidando do HTTPS no host:
 
@@ -116,6 +189,9 @@ Com um NGINX já cuidando do HTTPS no host:
 # .env: HTTP_BIND=127.0.0.1, HTTP_PORT=8080, FB_ADMIN_PASSWORD forte
 docker compose up -d --build
 ```
+
+<details>
+<summary><b>Bloco <code>server</code> do NGINX da VPS</b></summary>
 
 ```nginx
 server {
@@ -140,25 +216,45 @@ server {
 }
 ```
 
-Sem proxy no host? A pasta [`proxy/`](proxy/) tem um Caddy com HTTPS automático, hoje desativado.
+Sem proxy no host? A pasta [`proxy/`](proxy/) tem um Caddy com HTTPS automático (desativado).
 
-### Operação
+</details>
+
+> Antes de atualizar a VPS, confira o ✅ do CI no commit.
+
+## 🛠️ Operação
 
 | Tarefa | Comando |
 |---|---|
 | Atualizar | `git pull && docker compose up -d --build` |
-| Logs | `docker compose logs -f` |
-| Backup | `docker run --rm -v static-pages_srv:/s -v static-pages_db:/d -v "$PWD":/b alpine tar czf /b/backup.tgz /s /d` |
-| Parar | `docker compose down` (os volumes são preservados) |
+| Logs | `docker compose logs -f app` |
+| Backups feitos | `docker compose logs backup` e pasta `./backups` |
+| Histórico completo | `docker compose exec app tail -50 /database/auditoria.log` |
+| Parar | `docker compose down` (os volumes ficam) |
 
-## Menu automático da home
+<details>
+<summary><b>Restaurar um backup</b></summary>
 
-A home (`content/index.html`) monta os cards sozinha. Criou uma pasta no `/admin`, ela aparece no próximo F5, sem editar HTML.
+```bash
+docker compose stop app
+docker run --rm -v static-pages_srv:/data/srv -v static-pages_db:/data/db -v "$PWD/backups":/b alpine \
+  sh -c "rm -rf /data/srv/* /data/srv/.[!.]* /data/db/* && tar -xzf /b/static-pages-AAAA-MM-DD_HHMM.tar.gz -C /data"
+docker compose start app
+```
 
-- **Fonte:** `/_pastas/<caminho>/`, a listagem JSON do NGINX (`autoindex_format json`).
-- **Subpastas:** até 3 níveis. Elas viram links dentro do card da pasta mãe.
-- **Regras:** só entra pasta com `index.html`. Uma pasta sem index, mas com sub-páginas, vira grupo. Pastas que começam com `_` ou `.` ficam fora do menu (continuam acessíveis pela URL).
-- **`meta.json` (opcional)** dentro da pasta personaliza o card:
+O banco do File Browser é copiado com o app rodando. Para um backup 100% consistente, rode-o com o app parado.
+
+</details>
+
+## 📝 Conteúdo: home, times e meta.json
+
+- Cada pasta precisa de um `index.html` para virar página (`Index.html` e `INDEX.HTML` também valem).
+- Pastas que começam com `_` ou `.` ficam fora do menu, mas continuam acessíveis pela URL.
+- Uma pasta-**time** (com `.time.json`) vira uma seção na home. As subpastas dela viram os cards.
+- Um time criado pela tela já nasce com uma página inicial que lista as subpastas sozinha.
+
+<details>
+<summary><b><code>meta.json</code> opcional para personalizar o card</b></summary>
 
 ```json
 {
@@ -170,152 +266,64 @@ A home (`content/index.html`) monta os cards sozinha. Criou uma pasta no `/admin
 }
 ```
 
-> O site roda sob CSP `sandbox` (origem opaca), então `/_pastas/`, `meta.json` e os arquivos do site respondem com `Access-Control-Allow-Origin: *`. Isso nunca vale para o `/admin`. A listagem só expõe nomes que já são públicos pela URL.
+</details>
 
-## Times (gestão de acesso no painel)
+> `content/` é a **semente** do `/srv`: só é copiada quando o volume está vazio. Num servidor em uso, publique pelo painel.
 
-No `/admin`, o menu lateral ganha o item **Times** (só para admins), que abre `/admin/times`:
-
-| Ação | O que acontece |
-|---|---|
-| **Novo time** | Cria a pasta `/srv/<time>/` e um `.time.json` com nome e cota |
-| **Transformar em time** | Marca uma pasta que já existe como time, sem mexer nos arquivos |
-| **Adicionar pessoa** | Cria o usuário com escopo `/<time>` e permissão de editor. A senha é gerada e exibida uma vez |
-| **Usuário existente** | Move a pessoa para o time (troca o escopo) |
-| **Mover / Remover** | Troca de time ou apaga o usuário. Os arquivos do time ficam |
-| **Desfazer time** | Remove só o `.time.json`. As pessoas ficam "sem time" (`/_sem-time`) |
-
-Cada card mostra **pessoas**, **páginas** (pastas com `index.html`), **espaço em uso** e a barra de **cota**. A cota só **alerta** (80% e 100%) e não bloqueia uploads, porque o File Browser não tem esse controle.
-
-**Como funciona:**
-- Time = pasta de 1º nível com `.time.json`. Dotfiles respondem 404 no site, então o arquivo não vaza.
-- Membro = usuário com aquele escopo. O File Browser restringe o painel à pasta.
-- A tela é estática e usa a API do File Browser com o token do admin logado. O item de menu é injetado pelo NGINX (`sub_filter`) com `conf/times/inject.js`.
-- O cadastro público de contas é **desligado a cada boot** (`--signup=false`).
-
-> Os times controlam **quem edita**. O site continua público: quem tem a URL vê qualquer página.
-
-### Na home
-
-Uma pasta que é time vira uma **seção** própria. Suas subpastas aparecem como cards, e a página da raiz do time entra como "Página do time". O resto vai para "Outras páginas". Para isso, o `.time.json` **da raiz do time** é público (só nome e cota). Qualquer outro dotfile continua respondendo 404.
-
-### Colunas "Time" e "Alterado por" (só admins)
-
-A listagem de arquivos do painel ganha duas colunas:
-- **Time:** o time da pasta.
-- **Alterado por:** o último usuário que enviou, editou ou renomeou o arquivo, com data e hora no tooltip.
-
-O File Browser não guarda autoria. Quem registra é um **hook** (`conf/sp-autoria.sh`), disparado em `after_upload`, `after_save`, `after_rename`, `after_delete` e `after_copy`. Ele grava em:
-- `<pasta>/.autoria`: último autor por arquivo, lido pelo painel (no site, 404).
-- `/database/auditoria.log`: histórico completo, fora do site (`docker compose exec app tail /database/auditoria.log`).
-
-Arquivos enviados antes dos hooks existirem aparecem com "—". Membros não veem as colunas: eles ficam com "ocultar dotfiles" ligado e não podem ler nem apagar `.autoria` ou `.time.json`.
-
-## Lixeira
-
-Nada apagado no painel some de vez. Antes de cada exclusão, um hook (`conf/sp-lixeira.sh`, evento `before_delete`) copia o item para `/srv/_lixeira/<dia>/<lote>/<caminho>` e anota em `/srv/_lixeira/.registro` quem apagou e quando.
-
-- **Times → aba Lixeira:** botões **Restaurar** (volta ao caminho original, sem sobrescrever: se já existir, vira `nome(1)`) e **Apagar de vez**.
-- Itens com mais de `LIXEIRA_DIAS` (padrão 30) dias são removidos sozinhos.
-- `/_lixeira/` e `/_backup/` respondem 404 no site, e a home ignora pastas com `_`.
-
-## Atividade
-
-**Times → aba Atividade** mostra o histórico de `/database/auditoria.log` (enviou, editou, renomeou, apagou, restaurou), com filtros por time, pessoa e arquivo.
-
-O log é servido em `/admin/_auditoria` só para admins. O "porteiro" é o próprio File Browser: o NGINX faz um `auth_request` para `/admin/api/users`, que responde 200 só para admin. Membro recebe 403 e anônimo 401.
-
-## Visitas
-
-O NGINX registra só visitas reais a páginas (GET com 200, pastas ou `.html`, fora do `/admin` e das rotas `/_…`) em `/database/visitas.log`. A cada 5 minutos, `conf/sp-visitas.sh` agrega esse log em `/_visitas.json`.
-
-- **Home:** cada card mostra "N visitas · 30 dias".
-- **Times:** cada time mostra o total de visitas das suas páginas.
-- A janela é `VISITAS_DIAS` (padrão 30). O log guarda até 120 dias.
-
-## Modelo de página do time
-
-Ao criar um time pela tela, a pasta já ganha um `index.html` (`conf/times/modelo-time.html`). Ele mostra o nome do time, lido do `.time.json`, e lista sozinho as subpastas que têm página. Pode ser editado à vontade, e nunca é sobrescrito.
-
-## Backup
-
-O serviço `backup` do compose gera todo dia, às `BACKUP_HORA` (padrão 3h, horário de Brasília), um `backups/static-pages-AAAA-MM-DD_HHMM.tar.gz` com o site e o banco. Ele mantém os últimos `BACKUP_MANTER` (padrão 7) e lê os volumes **somente para leitura**.
-
-```bash
-docker compose logs backup          # ver os backups feitos
-```
-
-**Restaurar** (com o app parado):
-
-```bash
-docker compose stop app
-docker run --rm -v static-pages_srv:/data/srv -v static-pages_db:/data/db -v "$PWD/backups":/b alpine   sh -c "rm -rf /data/srv/* /data/srv/.[!.]* /data/db/* && tar -xzf /b/static-pages-AAAA-MM-DD_HHMM.tar.gz -C /data"
-docker compose start app
-```
-
-> O banco do File Browser é copiado com o serviço rodando. Para um backup 100% consistente, pare o app antes (`docker compose stop app`).
-
-## Testes
-
-Testes E2E em `tests/` (pytest + Playwright): rotas, headers, bloqueio de dotfiles, path traversal, permissões da auditoria, fluxo de times, membros, colunas, lixeira, atividade, home por time e visitas. Tudo que criam usa o prefixo `zz-` e é removido ao final, inclusive da lixeira. Dá para rodar contra o servidor real.
+## ✅ Testes e CI
 
 ```bash
 pip install -r tests/requirements.txt && python -m playwright install chromium
-python -m pytest tests -v                 # usa FB_ADMIN_PASSWORD do .env
-BROWSER_CHANNEL=msedge python -m pytest tests   # usa o Edge instalado
+python -m pytest tests -v                        # usa FB_ADMIN_PASSWORD do .env
+BROWSER_CHANNEL=msedge python -m pytest tests    # usa o Edge instalado
 ```
 
-O **GitHub Actions** (`.github/workflows/ci.yml`) builda a imagem, sobe o container e roda a suíte a cada push.
+Os testes cobrem rotas, headers, bloqueios, path traversal, permissões da auditoria, times, membros, colunas, lixeira, atividade, home por time e visitas. Tudo que eles criam usa o prefixo `zz-` e é removido no final, então dá para rodar no servidor real. O [CI](.github/workflows/ci.yml) builda, sobe e roda a suíte a cada push.
 
-## Boas práticas de conteúdo
+## ❓ FAQ
 
-- Cada pasta precisa de um `index.html` para abrir em `/pasta/`. `Index.html` e `INDEX.HTML` também funcionam.
-- `/pagina` serve `pagina.html` automaticamente.
-- Páginas novas do `content/` só entram num `/srv` vazio. O conteúdo existente nunca é sobrescrito.
+<details>
+<summary><b>Quem tem o link consegue ver qualquer página?</b></summary>
 
-## Estrutura
+Sim. Os times controlam **quem edita**. Login para **ver** (por time, com a conta corporativa) está no roadmap.
+</details>
 
-```
-static-pages/
-├── Dockerfile                 # imagem: nginx + filebrowser + tini
-├── docker-compose.yml         # local e VPS
-├── .env.example               # todas as variáveis
-├── subir.bat                  # atalho Windows
-├── DESIGN.md                  # contrato visual (tokens, tipografia, guardrails)
-├── conf/
-│   ├── entrypoint.sh          # startup
-│   ├── nginx/                 # default.conf + snippets
-│   ├── branding/              # CSS, logo e ícones do /admin
-│   └── times/                 # tela /admin/times + item de menu
-├── content/                   # páginas iniciais (seed de /srv)
-├── proxy/                     # Caddy opcional (desativado)
-├── tests/                     # testes E2E (pytest + Playwright)
-├── docs/img/                  # imagens deste README
-└── divulgacao/                # scripts que geram banner, prints e carrossel
-```
+<details>
+<summary><b>Por que minha página não consegue usar <code>localStorage</code> ou cookies?</b></summary>
 
-## Alternativas
+Por causa do CSP `sandbox`, que impede uma página enviada por upload de roubar a sessão do admin. Se o site precisar disso, sirva o painel num subdomínio próprio e desligue `SITE_SANDBOX` (ver [MEMORY](docs/MEMORY.md)).
+</details>
 
-Pesquisei projetos que juntam NGINX e File Browser. Os que existem são pequenos experimentos, sem documentação ou endurecimento:
+<details>
+<summary><b>A cota bloqueia uploads?</b></summary>
 
-| Projeto | Diferença |
-|---|---|
-| [`filebrowser/filebrowser`](https://github.com/filebrowser/filebrowser) | Só o gerenciador de arquivos. Não serve as páginas como site |
-| Caddy `file_server browse` | Lista e serve arquivos, mas não tem upload nem edição |
-| Coolify / Netlify / Vercel | Deploy via Git ou CLI. Ótimos, mas não para "subir um HTML pelo navegador" |
-| **static-pages** | Site + edição pelo navegador + isolamento entre os dois, num container |
+Não. Ela só alerta em 80% e 100%, porque o File Browser não tem esse controle.
+</details>
 
-## Regenerar as imagens
+<details>
+<summary><b>Apaguei sem querer. E agora?</b></summary>
 
-```bash
-python divulgacao/banner.py                                      # docs/img/banner.png
-FB_USER=admin FB_PASS=... python divulgacao/screenshots.py       # prints (requer playwright)
-python divulgacao/build.py                                       # carrossel 1080×1350 + PDF
-```
+Vá em **Times → Lixeira → Restaurar**. Depois de 30 dias o item some de vez, mas ainda existe nos backups diários.
+</details>
 
-## Para quem vai contribuir
+<details>
+<summary><b>Editei <code>content/index.html</code> e a home não mudou.</b></summary>
 
-Leia o [`CLAUDE.md`](CLAUDE.md) e os documentos em [`docs/`](docs/):
+`content/` só semeia um `/srv` vazio. Publique pelo painel ou rode `docker cp content/index.html static-pages:/srv/index.html`.
+</details>
+
+## 🗺️ Roadmap
+
+Backlog vivo com prioridade e critério de pronto: **[docs/TASKS.md](docs/TASKS.md)**. Destaques:
+
+- [ ] Backup fora da VPS
+- [ ] Imagem publicada no GHCR (deploy sem build)
+- [ ] Login de leitura por time (oauth2-proxy + Entra ID)
+- [ ] Painel em subdomínio próprio
+
+## 🤝 Contribuindo
+
+Leia o **[CONTRIBUTING.md](CONTRIBUTING.md)**. Em resumo: toda mudança começa por uma **spec** em [`specs/`](specs/_modelo.md), segue as [regras](docs/RULES.md) e só é commitada com os testes verdes.
 
 | Doc | Responde |
 |---|---|
@@ -324,10 +332,12 @@ Leia o [`CLAUDE.md`](CLAUDE.md) e os documentos em [`docs/`](docs/):
 | [RULES](docs/RULES.md) | o que não pode |
 | [DESIGN](DESIGN.md) | como deve parecer |
 | [MEMORY](docs/MEMORY.md) | decisões e erros, com data e motivo |
-| [TASKS](docs/TASKS.md) | o que falta, com prioridade e critério de pronto |
+| [TASKS](docs/TASKS.md) | o que falta |
 
-Toda mudança começa por uma spec em [`specs/`](specs/_modelo.md). Com o Claude Code: `/spec` para planejar, o agente `tech-lead` para o desenho técnico e `/finalizar-commit` para conferir tudo e commitar.
+Com o Claude Code: `/spec` para planejar, o agente `tech-lead` para o desenho técnico e `/finalizar-commit` para conferir e commitar (ver [CLAUDE.md](CLAUDE.md)).
 
-## Licença
+## 📄 Licença
 
 [MIT](LICENSE). Use, modifique e distribua à vontade.
+
+<p align="right"><a href="#topo">↑ voltar ao topo</a></p>
