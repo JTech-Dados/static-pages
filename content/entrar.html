@@ -58,6 +58,7 @@
       <h1 id="titulo">Conteúdo restrito</h1>
       <p id="descricao">As páginas do time <b id="time-nome"></b> são restritas. Entre com a sua conta Microsoft para continuar.</p>
       <button class="btn" id="entrar" type="button" disabled>Entrar com Microsoft</button>
+      <button class="btn" id="pedir" type="button" style="margin-top:10px" hidden>Pedir acesso</button>
       <p class="msg" id="msg" role="status" hidden></p>
       <a class="volta" href="__SP_BASE__/">← Página inicial</a>
     </section>
@@ -78,7 +79,7 @@
       const ENTRA = BASE + "/admin/entra";
       const $ = (s) => document.getElementById(s);
       const say = (text, erro) => { const m = $("msg"); m.textContent = text; m.hidden = !text; m.classList.toggle("erro", Boolean(erro)); };
-      let cfg = null, app = null;
+      let cfg = null, app = null, ultimo = null;   // ultimo: ID token da tentativa negada, usado para pedir acesso
 
       // nome do time (público): só textContent
       fetch(BASE + "/" + encodeURIComponent(TIME) + "/.time.json", { cache: "no-cache" }).then((r) => r.json())
@@ -105,6 +106,7 @@
         say("Abrindo o login da Microsoft…");
         try {
           const { idToken: tok, email } = await idToken();
+          $("pedir").hidden = true;
           say("Conferindo o seu acesso…");
           const r = await fetch(ENTRA + "/site/entrar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: tok, site: TIME, pagina: PAGINA }) });
           if (r.status === 200) { say("Entrando…"); location.reload(); return; }
@@ -112,7 +114,9 @@
             // contato de quem aprova (definido por quem restringiu); só chega a quem entrou com uma conta Microsoft
             const d = await r.json().catch(() => ({}));
             const quem = d && typeof d.contato === "string" && d.contato ? d.contato : "o responsável pelo time " + ($("time-nome").textContent || TIME);
-            say(`Sua conta${email ? " (" + email + ")" : ""} não tem acesso a esta página. Peça acesso a ${quem}.`, true);
+            say(`Sua conta${email ? " (" + email + ")" : ""} não tem acesso a esta página. Você pode pedir acesso aqui ou falar com ${quem}.`, true);
+            ultimo = { tok, email };
+            $("pedir").hidden = false;
           }
           else if (r.status === 429) say("Muitas tentativas. Aguarde um minuto.", true);
           else say("Não foi possível validar o login. Tente de novo.", true);
@@ -121,6 +125,24 @@
           say(/popup|blocked|interaction_in_progress/i.test(t) ? "O navegador bloqueou a janela da Microsoft. Libere pop-ups para este site e tente de novo."
             : /cancel/i.test(t) ? "Login cancelado." : "Não foi possível entrar com a Microsoft.", true);
         } finally { b.disabled = false; }
+      });
+
+      $("pedir").addEventListener("click", async () => {
+        if (!ultimo) return;
+        const b = $("pedir");
+        b.disabled = true;
+        try {
+          const r = await fetch(ENTRA + "/site/pedir", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: ultimo.tok, site: TIME, pagina: PAGINA }) });
+          const d = await r.json().catch(() => ({}));
+          if (r.status === 200 && d.status === "pendente") { say("Pedido enviado. Quem edita este time vai ver e aprovar na tela Acesso restrito. Volte aqui depois da aprovação.", false); b.hidden = true; }
+          else if (r.status === 200 && d.status === "ja_pendente") { say("Você já pediu acesso e o pedido está aguardando aprovação.", false); b.hidden = true; }
+          else if (r.status === 200 && d.status === "recusado_recente") { say("Seu último pedido foi recusado. Tente de novo em 24 horas ou fale com quem aprova.", true); b.hidden = true; }
+          else if (r.status === 200 && d.status === "ja_tem_acesso") { say("Você já tem acesso. Entrando…"); location.reload(); }
+          else if (r.status === 401) say("O login expirou. Entre com a Microsoft de novo.", true);
+          else if (r.status === 429) say("Muitas tentativas. Aguarde um minuto.", true);
+          else say("Não foi possível enviar o pedido. Tente de novo.", true);
+        } catch { say("Não foi possível enviar o pedido. Tente de novo.", true); }
+        finally { b.disabled = false; }
       });
 
       fetch(ENTRA + "/config", { cache: "no-store" }).then((r) => r.json()).then((c) => {

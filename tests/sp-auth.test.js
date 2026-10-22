@@ -687,3 +687,53 @@ test("site restrito por página: lista própria, nome com espaço e acento, cook
   assert.ok(!fs.existsSync(path.join(t.dir, "restritos", "_p", "time-a")));
   t.close();
 });
+
+test("pedir acesso: só com ID token válido, uma vez, decisão de quem edita o time, recusa trava por 24 h", async () => {
+  const clock = { t: Date.now() };
+  const t = await setup({ clock });
+  await ligaRestrito(t, ["convidada@empresa.com"]);
+  const pedir = (email, extra = {}) => t.call("POST", "/site/pedir", { idToken: mint({ preferred_username: email, name: "Estranha Silva" }), site: "time-a", ...extra });
+
+  assert.equal((await t.call("POST", "/site/pedir", { idToken: "lixo", site: "time-a" })).status, 401);
+  assert.equal((await pedir("estranha@empresa.com", { site: "time-b" })).status, 404);               // time-b não é restrito
+  assert.equal((await pedir("convidada@empresa.com")).data.status, "ja_tem_acesso");                   // quem já entra não cria pedido
+  assert.equal((await pedir("ana.silva@empresa.com")).data.status, "ja_tem_acesso");                   // membro do time também
+  const novo = await pedir("Estranha@Empresa.com");
+  assert.equal(novo.status, 200);
+  assert.equal(novo.data.status, "pendente");
+  assert.equal((await pedir("estranha@empresa.com")).data.status, "ja_pendente");                      // não duplica
+
+  // quem vê: editor do time e admin; leitor e editor de outro time não
+  const ed = { "X-Auth": jwtDe(6) };
+  const lista = await t.call("GET", "/site/pedidos?time=time-a", null, ed);
+  assert.equal(lista.status, 200);
+  assert.equal(lista.data.length, 1);
+  assert.equal(lista.data[0].email, "estranha@empresa.com");
+  assert.equal(lista.data[0].quem, "Estranha Silva");
+  assert.equal((await t.call("GET", "/site/pedidos?time=time-a", null, { "X-Auth": jwtDe(7) })).status, 403);
+  assert.equal((await t.call("GET", "/site/pedidos?time=time-a", null, { "X-Auth": jwtDe(3) })).status, 403);
+  assert.equal((await t.call("GET", "/site/pedidos", null, { "X-Auth": jwtDe(5) })).data.length, 1);       // admin, todos os times
+  assert.equal((await t.call("GET", "/site/pedidos/pendentes", null, ed)).data.total, 1);
+  assert.equal((await t.call("GET", "/site/pedidos/pendentes", null, { "X-Auth": jwtDe(7) })).data.total, 0);
+
+  // decidir: só quem edita aquele time
+  const id = lista.data[0].id;
+  assert.equal((await t.call("POST", "/site/pedidos/decidir", { id, aprovar: true }, { "X-Auth": jwtDe(7) })).status, 403);
+  assert.equal((await t.call("POST", "/site/pedidos/decidir", { id, aprovar: true }, { "X-Auth": jwtDe(3) })).status, 403);
+  const entrarAntes = await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "estranha@empresa.com" }), site: "time-a" });
+  assert.equal(entrarAntes.status, 403);
+  assert.equal((await t.call("POST", "/site/pedidos/decidir", { id, aprovar: true }, ed)).status, 200);
+  assert.equal((await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "estranha@empresa.com" }), site: "time-a" })).status, 200);   // agora entra
+  assert.equal((await t.call("GET", "/site/pedidos?time=time-a", null, ed)).data.length, 0);
+  assert.match(fs.readFileSync(path.join(t.dir, "auditoria.log"), "utf8"), /acesso_site_pedido[\s\S]*acesso_site_aprovado/);
+
+  // recusa: o pedido sai da fila e a mesma pessoa só pede de novo depois de 24 h
+  assert.equal((await pedir("outra@empresa.com")).data.status, "pendente");
+  const id2 = (await t.call("GET", "/site/pedidos?time=time-a", null, ed)).data[0].id;
+  assert.equal((await t.call("POST", "/site/pedidos/decidir", { id: id2, aprovar: false }, ed)).status, 200);
+  assert.equal((await pedir("outra@empresa.com")).data.status, "recusado_recente");
+  clock.t += 25 * 3600e3;
+  const depois = Math.floor(clock.t / 1000);   // o relógio andou: o ID token novo também tem de estar válido nele
+  assert.equal((await pedir("outra@empresa.com", { idToken: mint({ preferred_username: "outra@empresa.com", iat: depois, nbf: depois, exp: depois + 3600 }) })).data.status, "pendente");
+  t.close();
+});

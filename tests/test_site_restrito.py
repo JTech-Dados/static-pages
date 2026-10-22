@@ -343,3 +343,36 @@ def test_contato_de_quem_aprova_aparece_so_para_quem_foi_negado(admin, uid, idp)
     # sem login válido nada do contato vaza
     assert "contato" not in requests.post(f"{ENTRA}/site/entrar", json={"idToken": "lixo", "site": slug}, timeout=10).text
     assert "Maria" not in get(f"/{slug}/").text and "Maria" not in get(f"/{slug}/.time.json").text
+
+
+def test_pedir_acesso_ponta_a_ponta(admin, uid, idp, page):  # noqa: F811
+    """Negado vê o botão, pede; o editor do time vê o pedido na tela, aprova e a pessoa entra."""
+    slug = f"zz-ped-{uid}"
+    cria_time(admin, slug, "Time Pedido")
+    editor, estranha = f"zz.edped{uid}@exemplo.com", f"zz.estranha{uid}@exemplo.com"
+    assert admin.add_user(editor, SENHA, f"/{slug}").ok
+    restringe(admin, slug, [])
+
+    # a pessoa negada pede (rota pública atrás do ID token)
+    assert requests.post(f"{ENTRA}/site/pedir", json={"idToken": "lixo", "site": slug}, timeout=10).status_code == 401
+    r = requests.post(f"{ENTRA}/site/pedir", json={"idToken": idp(estranha), "site": slug}, timeout=10)
+    assert r.status_code == 200 and r.json()["status"] == "pendente"
+    assert requests.post(f"{ENTRA}/site/pedir", json={"idToken": idp(estranha), "site": slug}, timeout=10).json()["status"] == "ja_pendente"
+    assert entra(idp, estranha, slug).status_code == 403
+    # o pedido não vaza em lugar público
+    assert estranha not in get(f"/{slug}/").text and estranha not in get(f"/{slug}/.time.json").text
+
+    # o editor vê o contador no menu e a seção na tela Acesso restrito, e aprova
+    login_token(page, Api(editor, SENHA).token)
+    expect(page.locator("nav [data-sp-restrito-badge]")).to_have_text("1", timeout=20000)
+    page.locator("nav [data-sp-restrito]").click()
+    page.wait_for_url("**/admin/times/restrito.html")
+    linha = page.locator("#pedidos .lixo", has_text=estranha)
+    expect(linha).to_be_visible(timeout=15000)
+    expect(linha).to_contain_text("o time inteiro")
+    linha.get_by_role("button", name="Aprovar").click()
+    expect(page.locator("#toast")).to_contain_text("agora tem acesso", timeout=15000)
+    expect(page.locator("#pedidos")).to_be_hidden(timeout=15000)
+
+    # e a pessoa entra
+    assert entra(idp, estranha, slug).status_code == 200

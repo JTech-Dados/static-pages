@@ -14,7 +14,6 @@
 | 🟡 | Remover a pasta `_backup` criada no setup inicial | conteúdo conferido e apagado, ou movido para `./backups` |
 | 🔵 | Admin em subdomínio próprio | `/admin` só em `admin.<domínio>`; CSP sandbox do site pode ser revisto (decisão na MEMORY) |
 | 🔵 | Acesso restrito, modo A (assets e `fetch` com cookie) | decidir após testar a matriz de navegadores; hoje a v1 só protege a navegação e o conteúdo restrito precisa ser autocontido |
-| 🔵 | "Pedir acesso" em página restrita | botão na tela de entrada que cria um pedido para quem edita o time aprovar (hoje só aparece o contato opcional definido na tela Acesso restrito) |
 | 🔵 | Tema escuro | botão de tema no topo do painel e da home, escolha guardada no navegador |
 | 🔵 | Validar o login Microsoft com um tenant real no Redirect URI padrão | `…/admin/entra/retorno` cadastrado no app Entra e login completo testado (a suíte usa só um Entra de teste) |
 | 🔵 | Filtrar robôs no contador de visitas | User-Agents de bots conhecidos não contam |
@@ -23,6 +22,7 @@
 
 | Data | Entrega | Commit |
 |---|---|---|
+| 2026-10-22 | Pedir acesso em página restrita (botão na tela de entrada, pedidos e aprovação na tela Acesso restrito, contador no menu) | (este commit) |
 | 2026-10-22 | Painel sempre no tema claro; Lixeira no menu para editores (lista por item); prompt para o Claude nos tokens de API; restrição por página com lista própria; correção do acesso restrito com espaço/acento; "Alterado por" com nome para todos; contador de visitas com acento; barra do painel esquece a conta anterior | (este commit) |
 | 2026-10-23 | Tokens de API (tela, troca por sessão, script `publicar.py`), acesso restrito por time com login Microsoft (v1), "ver site ↗" na lista de arquivos, login com caminho de volta para a home | (este commit) |
 | 2026-10-22 | Login Microsoft (Entra ID) no painel com pedido de acesso e aprovação; aba Usuários (papel e time); cota por time que bloqueia upload (inclusive o tus da interface); espaço do time no menu; nomes curtos; guia "Como publicar" (`/_ajuda/`); histórico de acessos na Atividade; `SP_BASE` (prefixo público); painel conferido em 360 px | — |

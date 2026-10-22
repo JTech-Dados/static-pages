@@ -221,7 +221,7 @@ Membros são usuários do File Browser com o **e-mail como nome de usuário**; q
 
 ## 🔒 Páginas com acesso restrito
 
-Admin e editores de um time ligam, no painel (**Acesso restrito**), a restrição a e-mails autorizados (login Microsoft), para o time inteiro ou para uma página só (**Onde aplicar**); a página restrita tem lista própria. Quem não está na lista vê uma tela de entrada e não lê o conteúdo; membros do time e admins entram sempre. A v1 protege a **navegação**: o conteúdo restrito precisa ser um HTML autocontido (assets e `fetch` de arquivos separados não carregam). Falha fechado: se o `sp-auth` cair, nada do time restrito é servido. Detalhes e limites em [ARCHITECTURE](docs/ARCHITECTURE.md) e `specs/2026-10-23-entra-por-site.md`.
+Admin e editores de um time ligam, no painel (**Acesso restrito**), a restrição a e-mails autorizados (login Microsoft), para o time inteiro ou para uma página só (**Onde aplicar**); a página restrita tem lista própria. Quem não está na lista vê uma tela de entrada e não lê o conteúdo; membros do time e admins entram sempre. A v1 protege a **navegação**: o conteúdo restrito precisa ser um HTML autocontido (assets e `fetch` de arquivos separados não carregam). Falha fechado: se o `sp-auth` cair, nada do time restrito é servido. Quem entra com a Microsoft e não está na lista pode **pedir acesso**; admins e editores aprovam na tela Acesso restrito. Detalhes e limites em [ARCHITECTURE](docs/ARCHITECTURE.md) e `specs/2026-10-23-entra-por-site.md`.
 
 ## 🔑 Tokens de API (automações)
 

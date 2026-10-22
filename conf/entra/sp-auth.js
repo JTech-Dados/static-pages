@@ -335,6 +335,49 @@ function createPedidos(file, now) {
   };
 }
 
+// ---------- pedidos de acesso a página/time restritos ----------
+// { "<id>": { alvo, email, nome, status: pendente|recusado, em } }; pendente é um por (alvo, e-mail).
+const SITE_PEDIDOS_POR_ALVO = 100, SITE_PEDIDOS_POR_EMAIL = 20, SITE_RECUSA_H = 24;
+function createSitePedidos(file, now) {
+  let data = {};
+  if (file) { try { data = JSON.parse(fs.readFileSync(file, "utf8")); } catch { data = {}; } }
+  if (!data || typeof data !== "object" || Array.isArray(data)) data = {};
+  const save = () => {
+    if (!file) return;
+    const tmp = file + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n", { mode: 0o640 });
+    fs.renameSync(tmp, file);
+  };
+  const idDe = (alvo, email) => crypto.createHash("sha256").update(`${alvo}\n${email}`).digest("hex").slice(0, 16);
+  const horas = (p) => (now() - Date.parse(p.em)) / 36e5;
+  return {
+    // "ok" cria; "ja_pendente"; "recusado_recente"; "limite"
+    pedir(alvo, email, nome) {
+      const id = idDe(alvo, email);
+      const p = data[id];
+      if (p && p.status === "pendente") return "ja_pendente";
+      if (p && p.status === "recusado" && horas(p) < SITE_RECUSA_H) return "recusado_recente";
+      const pend = Object.values(data).filter((x) => x.status === "pendente");
+      if (pend.filter((x) => x.alvo === alvo).length >= SITE_PEDIDOS_POR_ALVO || pend.filter((x) => x.email === email).length >= SITE_PEDIDOS_POR_EMAIL) return "limite";
+      data[id] = { alvo, email, nome: String(nome || "").slice(0, 120), status: "pendente", em: new Date(now()).toISOString() };
+      save();
+      return "ok";
+    },
+    // pendentes de um time (todos os alvos dele); time vazio = de todos os times
+    list(time) {
+      return Object.entries(data)
+        .filter(([, p]) => p.status === "pendente" && (!time || p.alvo === time || p.alvo.startsWith(time + "/")))
+        .map(([id, p]) => ({ id, ...p }))
+        .sort((a, b) => a.em.localeCompare(b.em));
+    },
+    get: (id) => data[id] || null,
+    approve(id) { if (!data[id]) return false; delete data[id]; save(); return true; },
+    refuse(id) { if (!data[id]) return false; data[id].status = "recusado"; data[id].em = new Date(now()).toISOString(); save(); return true; },
+    // alvo apagado/dado como não restrito: pedidos antigos saem
+    dropAlvo(alvo) { for (const [id, p] of Object.entries(data)) if (p.alvo === alvo) delete data[id]; save(); },
+  };
+}
+
 // ---------- tokens de API pessoais ----------
 // Só o SHA-256 do token fica em disco (o token tem 256 bits aleatórios: sem sal). Cada registro guarda
 // o id do usuário no File Browser (usuário removido e recriado não herda tokens) e o papel que a pessoa
@@ -523,6 +566,7 @@ function createApp(o) {
   const pedidos = createPedidos(o.pedidosFile, o.now);
   const nomes = createNomes(o.nomesFile);
   const apiTokens = createApiTokens(o.apiTokensFile, o.now);
+  const sitePedidos = createSitePedidos(o.sitePedidosFile, o.now);
   const sites = createSiteAcesso(o.siteAcessoFile || pathLib.join(o.srvDir || ".", "..", "site-acesso.json"), o.restritosDir || "/database/restritos", o.now);
   sites.reconcile(o.srvDir);
   const segredo = createSegredo(o.siteSegredoFile || "/database/site-segredo");
@@ -922,6 +966,60 @@ function createApp(o) {
       return { ok: true, ...sites.get(alvo), paginas: sites.paginas(time) };
     },
 
+    // ----- pedidos de acesso (a credencial de quem pede é o ID token; quem decide é admin/editor do time) -----
+    "POST /site/pedir": async (req) => {
+      const b = await readBody(req);
+      const { email, nome } = await verify(b.idToken);       // não consome: o mesmo token serve ao "entrar" e ao "pedir"
+      const time = timeDe(b.site);
+      const alvo = alvoEfetivo(time, paginaOuVazio(time, b.pagina));
+      if (!sites.restrito(alvo)) throw new HttpError(404, { erro: "nao_restrito" });
+      if (await temAcesso(email, alvo, true)) return { ok: true, status: "ja_tem_acesso" };
+      const r = sitePedidos.pedir(alvo, email, nome);
+      if (r === "limite") throw new HttpError(429, { erro: "limite_de_pedidos" });
+      if (r === "ok") audit(email, "acesso_site_pedido", `/${alvo}`);
+      return { ok: true, status: r === "ok" ? "pendente" : r };
+    },
+
+    "GET /site/pedidos": async (req) => {
+      const u = await userFromToken(req);
+      const admin = Boolean(u.perm && u.perm.admin);
+      const time = new URL(req.url, "http://x").searchParams.get("time") || "";
+      if (time) { timeDe(time); podeEditarLista(u, time); }
+      else if (!admin) throw new HttpError(403, { erro: "sem_permissao" });
+      return sitePedidos.list(time).map((p) => ({ ...p, quem: nomeCurto(p.nome, p.email) }));
+    },
+
+    // contador para o menu: admin vê todos; editor, os do próprio time
+    "GET /site/pedidos/pendentes": async (req) => {
+      const u = await userFromToken(req);
+      const admin = Boolean(u.perm && u.perm.admin);
+      const editor = Boolean(u.perm && (u.perm.create || u.perm.modify));
+      const slug = slugDoEscopo(u);
+      if (!admin && !(editor && slugOk(slug))) return { total: 0 };
+      return { total: sitePedidos.list(admin ? "" : slug).length };
+    },
+
+    "POST /site/pedidos/decidir": async (req) => {
+      const u = await userFromToken(req);
+      const b = await readBody(req);
+      const p = sitePedidos.get(String(b.id || ""));
+      if (!p || p.status !== "pendente") throw new HttpError(404, { erro: "nao_encontrado" });
+      const time = p.alvo.split("/")[0];
+      podeEditarLista(u, time);
+      if (b.aprovar === true) {
+        const atual = sites.get(p.alvo);
+        const emails = [...new Set([...atual.emails.map((x) => String(x).toLowerCase()), p.email])];
+        if (emails.length > MAX_EMAILS_SITE) throw new HttpError(400, { erro: "emails_demais" });
+        try { sites.set(p.alvo, atual.ativo, emails, u.username, atual.contato); } catch { throw new HttpError(502, { erro: "falha_ao_gravar" }); }
+        sitePedidos.approve(String(b.id));
+        audit(u.username, "acesso_site_aprovado", `/${p.alvo}: ${p.email}`);
+      } else {
+        sitePedidos.refuse(String(b.id));
+        audit(u.username, "acesso_site_recusado", `/${p.alvo}: ${p.email}`);
+      }
+      return { ok: true };
+    },
+
     // Entrada num site restrito: valida o ID token (sem trocar senha de ninguém) e, se a conta tem acesso,
     // emite o cookie do time. Pública (a credencial é o ID token): limite por IP no NGINX.
     "POST /site/entrar": async (req) => {
@@ -1062,6 +1160,7 @@ function main() {
     nomesFile: env.SP_AUTH_NOMES || "/database/entra-nomes.json",
     apiTokensFile: env.SP_AUTH_API_TOKENS || "/database/api-tokens.json",
     siteAcessoFile: env.SP_AUTH_SITE_ACESSO || "/database/site-acesso.json",
+    sitePedidosFile: env.SP_AUTH_SITE_PEDIDOS || "/database/site-pedidos.json",
     restritosDir: env.SP_AUTH_RESTRITOS || "/database/restritos",
     siteSegredoFile: env.SP_AUTH_SITE_SEGREDO || "/database/site-segredo",
     base,
@@ -1078,4 +1177,4 @@ function main() {
 const enabled = (t, c) => Boolean(t && c);
 
 if (require.main === module) main();
-module.exports = { createApp, createLixeira, createVerifier, createPedidos, createApiTokens, nomeCurto };
+module.exports = { createApp, createLixeira, createSitePedidos, createVerifier, createPedidos, createApiTokens, nomeCurto };

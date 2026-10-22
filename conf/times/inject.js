@@ -142,8 +142,26 @@
     icon.textContent = "lock";
     const label = document.createElement("span");
     label.textContent = "Acesso restrito";
-    link.append(icon, label);
+    const badge = document.createElement("span");
+    badge.className = "sp-badge";
+    badge.dataset.spRestritoBadge = "";
+    badge.hidden = true;
+    link.append(icon, label, badge);
     settings.parentNode.insertBefore(link, settings);
+  }
+
+  // pedidos de acesso a páginas restritas (admin: todos; editor: do time); a cada 30 s no máximo
+  let restritoPendAt = 0;
+  async function refreshRestritoPedidos(s) {
+    const badge = document.querySelector("[data-sp-restrito-badge]");
+    if (!badge || Date.now() - restritoPendAt < 30000) return;
+    restritoPendAt = Date.now();
+    try {
+      const r = await fetch(BASE + "/admin/entra/site/pedidos/pendentes", { headers: { "X-Auth": s.token }, cache: "no-store" });
+      const n = r.ok ? Number((await r.json()).total) || 0 : 0;
+      setText(badge, n ? String(n) : "");
+      badge.hidden = !n;
+    } catch (_) { /* sem contador */ }
   }
 
   // ---------- 1d. menu "Lixeira": admin e editores (quem pode restaurar); a pasta _lixeira crua vira a tela ----------
@@ -491,7 +509,7 @@
       const s = session();
       if (!s) return;
       addMenuItem(s);
-      loadMe(s).then(() => { addWhoChip(s); addApiMenuItem(s); addRestritoMenuItem(s); addLixeiraMenuItem(s); addSiteLinks(s, meSlug); });
+      loadMe(s).then(() => { addWhoChip(s); addApiMenuItem(s); addRestritoMenuItem(s); refreshRestritoPedidos(s); addLixeiraMenuItem(s); addSiteLinks(s, meSlug); });
       refreshPending(s);
       annotate(s);
     }, 120);

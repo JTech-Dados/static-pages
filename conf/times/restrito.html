@@ -78,6 +78,11 @@
         </div>
       </div>
 
+      <section id="pedidos" hidden>
+        <div class="section-title">Pedidos de acesso <span class="mono" id="pedidos-n"></span></div>
+        <ul class="lixo-lista" id="pedidos-lista"></ul>
+      </section>
+
       <div class="aviso-box">
         <b>Antes de ligar</b>
         <ul>
@@ -167,9 +172,54 @@
       $("#ativo").checked = Boolean(r.data.ativo);
       $("#emails").value = (r.data.emails || []).join("\n");
       $("#contato").value = r.data.contato || "";
+      carregarPedidos(time);
       const d = $("#dominios");
       d.hidden = !(r.data.dominios && r.data.dominios.length);
       if (!d.hidden) d.textContent = "Só e-mails destes domínios: " + r.data.dominios.join(", ") + ".";
+    }
+
+    // pedidos feitos pela tela de entrada (quem entrou com a Microsoft e não estava na lista)
+    async function carregarPedidos(time) {
+      const r = await req("/site/pedidos?time=" + encodeURIComponent(time));
+      const box = $("#pedidos");
+      if (r.status !== 200 || !Array.isArray(r.data) || !r.data.length) { box.hidden = true; return; }
+      $("#pedidos-n").textContent = `(${r.data.length})`;
+      const ul = $("#pedidos-lista");
+      ul.replaceChildren();
+      for (const p of r.data) {
+        const li = document.createElement("li");
+        li.className = "lixo";
+        const ico = document.createElement("i");
+        ico.className = "material-icons lixo-ico";
+        ico.textContent = "person_add";
+        const txt = document.createElement("div");
+        txt.className = "lixo-txt";
+        const nome = document.createElement("b");
+        nome.className = "lixo-nome";
+        nome.textContent = p.quem || p.email;
+        const meta = document.createElement("span");
+        meta.className = "lixo-meta";
+        const pagina = p.alvo.includes("/") ? `página ${p.alvo.split("/").slice(1).join("/")}` : "o time inteiro";
+        meta.textContent = `${p.email} · pede acesso a ${pagina}`;
+        txt.append(nome, meta);
+        const acts = document.createElement("div");
+        acts.className = "lixo-acts";
+        const decidir = async (aprovar, btn) => {
+          btn.disabled = true;
+          const d = await req("/site/pedidos/decidir", { method: "POST", body: JSON.stringify({ id: p.id, aprovar }) });
+          if (d.status !== 200) { btn.disabled = false; return toast("Não foi possível decidir o pedido.", true); }
+          toast(aprovar ? `${p.email} agora tem acesso.` : "Pedido recusado.");
+          carregar(atual, atualPagina);
+        };
+        const ok = Object.assign(document.createElement("button"), { type: "button", className: "btn sm", textContent: "Aprovar" });
+        const no = Object.assign(document.createElement("button"), { type: "button", className: "btn secondary sm", textContent: "Recusar" });
+        ok.onclick = () => decidir(true, ok);
+        no.onclick = () => decidir(false, no);
+        acts.append(ok, no);
+        li.append(ico, txt, document.createElement("span"), document.createElement("span"), acts);
+        ul.append(li);
+      }
+      box.hidden = false;
     }
 
     $("#time").onchange = () => carregar($("#time").value);
