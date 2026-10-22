@@ -1,6 +1,7 @@
 """Capturas do README (1280x800 @2x) -> docs/img/*.png
 
 Uso:  FB_USER=admin FB_PASS=... python divulgacao/screenshots.py
+      (sem Edge: BROWSER_CHANNEL= BROWSER_PATH=/caminho/chromium)
 """
 import os
 from pathlib import Path
@@ -14,7 +15,7 @@ OUT = Path(__file__).parent.parent / "docs" / "img"
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
-        browser = p.chromium.launch(channel="msedge")
+        browser = p.chromium.launch(channel=os.environ.get("BROWSER_CHANNEL", "msedge") or None, executable_path=os.environ.get("BROWSER_PATH") or None)
         page = browser.new_page(viewport={"width": 1280, "height": 800}, device_scale_factor=2)
 
         # Home com pastas fictícias: intercepta /_pastas/ e os meta.json

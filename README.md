@@ -100,20 +100,32 @@ docker compose up -d --build
 
 <table>
   <tr>
-    <td width="50%"><b>Home</b>: páginas por time, filtro e visitas<br><img src="docs/img/site.png" alt="Home com cards das páginas publicadas"></td>
-    <td width="50%"><b>Painel</b>: arquivos com colunas Time e Alterado por<br><img src="docs/img/admin.png" alt="Listagem de arquivos no painel"></td>
+    <td width="50%"><b>Home</b><br><img src="docs/img/site.png" alt="Home com cards das páginas publicadas"></td>
+    <td><b>Painel</b><br><img src="docs/img/admin.png" alt="Listagem de arquivos no painel"></td>
   </tr>
   <tr>
-    <td><b>Times</b>: pessoas, páginas, espaço, cota e visitas<br><img src="docs/img/times.png" alt="Tela de gestão de times"></td>
-    <td><b>Atividade</b>: quem fez o quê e quando<br><img src="docs/img/atividade.png" alt="Histórico de atividade"></td>
+    <td width="50%"><b>Login: Microsoft ou usuário e senha</b><br><img src="docs/img/login.png" alt="Tela de login com o botão Entrar com Microsoft"></td>
+    <td><b>Visão de um membro: time, papel e espaço do time</b><br><img src="docs/img/membro.png" alt="Painel de um membro com a barra de espaço"></td>
   </tr>
   <tr>
-    <td><b>Lixeira</b>: restaurar ou apagar de vez<br><img src="docs/img/lixeira.png" alt="Lixeira com restauração"></td>
-    <td><b>Login</b><br><img src="docs/img/login.png" alt="Tela de login do painel"></td>
+    <td width="50%"><b>Acessos e times: pessoas, páginas, espaço, cota e visitas</b><br><img src="docs/img/times.png" alt="Tela Acessos e times"></td>
+    <td><b>Pessoas do time</b><br><img src="docs/img/pessoas.png" alt="Diálogo com as pessoas do time"></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>Usuários: papel e time de cada pessoa</b><br><img src="docs/img/usuarios.png" alt="Aba Usuários"></td>
+    <td><b>Pedidos de acesso: aprovar e escolher o time</b><br><img src="docs/img/pedidos.png" alt="Aba Pedidos"></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>Atividade: arquivos e acessos (login, pedido, papel, cota)</b><br><img src="docs/img/atividade.png" alt="Histórico de atividade"></td>
+    <td><b>Lixeira: restaurar ou apagar de vez</b><br><img src="docs/img/lixeira.png" alt="Lixeira com restauração"></td>
+  </tr>
+  <tr>
+    <td width="50%"><b>Guia "Como publicar"</b><br><img src="docs/img/guia.png" alt="Guia de publicação"></td>
+    <td><b>404</b><br><img src="docs/img/404.png" alt="Página 404"></td>
   </tr>
 </table>
 
-<sub>Imagens com dados fictícios, geradas por <code>divulgacao/screenshots.py</code> e <code>divulgacao/screenshots_painel.py</code>.</sub>
+<sub>Imagens com dados fictícios, geradas por <code>divulgacao/screenshots.py</code>, <code>screenshots_acessos.py</code> e <code>screenshots_painel.py</code>.</sub>
 
 ## 🧱 Arquitetura
 

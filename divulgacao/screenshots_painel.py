@@ -1,4 +1,4 @@
-"""Prints das telas do painel para o README (dados fictícios) -> docs/img/
+"""Prints do painel (lixeira) para o README (dados fictícios; Acessos e Atividade: screenshots_acessos.py) -> docs/img/
 
 Cria times de demonstração temporários (removidos no final, inclusive da
 lixeira) e simula Atividade/Lixeira interceptando as respostas, para que
@@ -54,7 +54,7 @@ def shoot():
     setup(api)
     try:
         with sync_playwright() as p:
-            b = p.chromium.launch(channel=os.environ.get("BROWSER_CHANNEL") or None)
+            b = p.chromium.launch(channel=os.environ.get("BROWSER_CHANNEL") or None, executable_path=os.environ.get("BROWSER_PATH") or None)
             pg = b.new_page(viewport={"width": 1280, "height": 860}, device_scale_factor=2)
             pg.goto(f"{BASE}/admin/login")
             pg.evaluate("t => localStorage.setItem('jwt', t)", api.token)
@@ -67,12 +67,6 @@ def shoot():
                   if (a && name) a.textContent = name.textContent.charAt(0);
                 }); }"""
 
-            pg.goto(f"{BASE}/admin/times", wait_until="networkidle")
-            pg.wait_for_timeout(1200)
-            pg.evaluate(clean)
-            box = pg.locator("#teams-section").bounding_box()
-            pg.screenshot(path=OUT / "times.png", clip={"x": 0, "y": 0, "width": 1280, "height": box["y"] + box["height"] + 24})
-
             pg.route("**/admin/api/raw/_lixeira/.registro", lambda r: r.fulfill(body=FAKE_TRASH, content_type="text/plain"))
             pg.route("**/admin/_auditoria", lambda r: r.fulfill(body=FAKE_LOG, content_type="text/plain"))
             pg.goto(f"{BASE}/admin/times#lixeira", wait_until="networkidle")
@@ -80,10 +74,6 @@ def shoot():
             pg.evaluate(clean)
             pg.screenshot(path=OUT / "lixeira.png", clip={"x": 0, "y": 0, "width": 1280, "height": 560})
 
-            pg.goto(f"{BASE}/admin/times#atividade", wait_until="networkidle")
-            pg.wait_for_timeout(1000)
-            pg.evaluate(clean)
-            pg.screenshot(path=OUT / "atividade.png", clip={"x": 0, "y": 0, "width": 1280, "height": 660})
             b.close()
     finally:
         api.cleanup()
