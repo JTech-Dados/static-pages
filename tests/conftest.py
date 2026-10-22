@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 
 import pytest
 import requests
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeout, sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
 PREFIX = "zz-"
@@ -149,8 +149,14 @@ def login(pg, user, password):
         pg.goto(f"{BASE}/admin/login")
         pg.fill("input[type=text]", user)
         pg.fill("input[type=password]", password)
-        with pg.expect_response(lambda r: r.url.endswith("/admin/api/login") and r.request.method == "POST", timeout=30000) as info:
-            pg.keyboard.press("Enter")
+        try:
+            with pg.expect_response(lambda r: r.url.endswith("/admin/api/login") and r.request.method == "POST", timeout=20000) as info:
+                pg.keyboard.press("Enter")
+        except PlaywrightTimeout:
+            # a tela de login é remontada pelo inject.js: o Enter pode cair antes do formulário final; recarrega e tenta de novo
+            if tentativa == 4:
+                raise
+            continue
         if info.value.status != 429:
             break
         time.sleep(13)
