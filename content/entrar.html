@@ -108,7 +108,12 @@
           say("Conferindo o seu acesso…");
           const r = await fetch(ENTRA + "/site/entrar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: tok, site: TIME, pagina: PAGINA }) });
           if (r.status === 200) { say("Entrando…"); location.reload(); return; }
-          if (r.status === 403) say(`Sua conta${email ? " (" + email + ")" : ""} não tem acesso a esta página. Peça ao time responsável.`, true);
+          if (r.status === 403) {
+            // contato de quem aprova (definido por quem restringiu); só chega a quem entrou com uma conta Microsoft
+            const d = await r.json().catch(() => ({}));
+            const quem = d && typeof d.contato === "string" && d.contato ? d.contato : "o responsável pelo time " + ($("time-nome").textContent || TIME);
+            say(`Sua conta${email ? " (" + email + ")" : ""} não tem acesso a esta página. Peça acesso a ${quem}.`, true);
+          }
           else if (r.status === 429) say("Muitas tentativas. Aguarde um minuto.", true);
           else say("Não foi possível validar o login. Tente de novo.", true);
         } catch (e) {

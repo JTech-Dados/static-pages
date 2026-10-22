@@ -412,7 +412,7 @@
         move.onchange = () => move.value && moveUser(u, move.value, move.selectedOptions[0].text);
         li.append(move);
 
-        const del = el("button", "btn danger sm", "Remover");
+        const del = el("button", "btn danger sm", "Excluir conta");
         del.type = "button";
         del.onclick = () => deleteUser(u);
         li.append(del);
@@ -487,7 +487,7 @@
     }
 
     async function deleteUser(u) {
-      if (!confirm(`Remover o acesso de "${u.username}"? O usuário será apagado; os arquivos do time continuam.`)) return;
+      if (!confirm(`Excluir a conta de "${u.username}"? A conta é apagada: a pessoa deixa de entrar no painel e sai do time. Os arquivos do time continuam. Só quer tirá-la do time? Use "Mover para… > Sem time". Para voltar depois de excluída, ela precisa pedir acesso de novo.`)) return;
       try {
         await api(`/users/${u.id}`, { method: "DELETE" });
         toast(`${u.username} removido.`);

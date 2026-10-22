@@ -135,7 +135,7 @@
       }
 
       const acts = el("td", "acts");
-      const del = el("button", "btn danger sm", "Remover");
+      const del = el("button", "btn danger sm", "Excluir conta");
       del.type = "button";
       del.disabled = self;
       del.onclick = async () => { await deleteUser(u); loadUsers(); };

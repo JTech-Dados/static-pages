@@ -70,6 +70,9 @@
         <textarea id="emails" rows="8" spellcheck="false" placeholder="nome.sobrenome@empresa.com"></textarea>
         <p class="hint" id="dominios" hidden></p>
 
+        <label for="contato" class="rotulo">Quem aprova pedidos de acesso <span class="hint-inline">opcional; aparece para quem entra com a conta Microsoft e não está na lista</span></label>
+        <input type="text" id="contato" maxlength="120" autocomplete="off" placeholder="Ex.: Maria Souza (maria.souza@empresa.com)">
+
         <div class="dlg-actions" style="justify-content:flex-start">
           <button class="btn" type="button" id="salvar">Salvar</button>
         </div>
@@ -163,6 +166,7 @@
       else alvo.append("às páginas do time ", Object.assign(document.createElement("b"), { textContent: nomeTime }));
       $("#ativo").checked = Boolean(r.data.ativo);
       $("#emails").value = (r.data.emails || []).join("\n");
+      $("#contato").value = r.data.contato || "";
       const d = $("#dominios");
       d.hidden = !(r.data.dominios && r.data.dominios.length);
       if (!d.hidden) d.textContent = "Só e-mails destes domínios: " + r.data.dominios.join(", ") + ".";
@@ -172,7 +176,7 @@
     $("#pagina").onchange = () => carregar(atual, $("#pagina").value, false);
     $("#salvar").onclick = async () => {
       const emails = $("#emails").value.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
-      const r = await req("/site/acesso", { method: "PUT", body: JSON.stringify({ time: atual, pagina: atualPagina, ativo: $("#ativo").checked, emails }) });
+      const r = await req("/site/acesso", { method: "PUT", body: JSON.stringify({ time: atual, pagina: atualPagina, ativo: $("#ativo").checked, emails, contato: $("#contato").value }) });
       if (r.status === 200) { toast($("#ativo").checked ? "Acesso restrito salvo." : "Restrição desligada: as páginas voltam a ser públicas."); carregar(atual, atualPagina); return; }
       const e = r.data.erro;
       toast(e === "email_invalido" ? `E-mail inválido: ${r.data.email}` : e === "dominio_nao_permitido" ? `Domínio não permitido: ${r.data.email}`

@@ -14,6 +14,7 @@
 | 🟡 | Remover a pasta `_backup` criada no setup inicial | conteúdo conferido e apagado, ou movido para `./backups` |
 | 🔵 | Admin em subdomínio próprio | `/admin` só em `admin.<domínio>`; CSP sandbox do site pode ser revisto (decisão na MEMORY) |
 | 🔵 | Acesso restrito, modo A (assets e `fetch` com cookie) | decidir após testar a matriz de navegadores; hoje a v1 só protege a navegação e o conteúdo restrito precisa ser autocontido |
+| 🔵 | "Pedir acesso" em página restrita | botão na tela de entrada que cria um pedido para quem edita o time aprovar (hoje só aparece o contato opcional definido na tela Acesso restrito) |
 | 🔵 | Tema escuro | botão de tema no topo do painel e da home, escolha guardada no navegador |
 | 🔵 | Validar o login Microsoft com um tenant real no Redirect URI padrão | `…/admin/entra/retorno` cadastrado no app Entra e login completo testado (a suíte usa só um Entra de teste) |
 | 🔵 | Filtrar robôs no contador de visitas | User-Agents de bots conhecidos não contam |

@@ -331,3 +331,15 @@ def test_pagina_restrita_com_espaco_no_nome_e_time_publico(admin, uid, idp):  # 
     # desligar devolve a página ao público
     requests.put(f"{ENTRA}/site/acesso", json={"time": slug, "pagina": pg, "ativo": False, "emails": [pessoa]}, headers=admin.h, timeout=10)
     assert get(caminho).status_code == 200
+
+
+def test_contato_de_quem_aprova_aparece_so_para_quem_foi_negado(admin, uid, idp):  # noqa: F811
+    slug = f"zz-cont-{uid}"
+    cria_time(admin, slug, "Time Contato")
+    r = requests.put(f"{ENTRA}/site/acesso", json={"time": slug, "ativo": True, "emails": [], "contato": "  Maria Souza (maria@exemplo.com)  "}, headers=admin.h, timeout=10)
+    assert r.status_code == 200 and r.json()["contato"] == "Maria Souza (maria@exemplo.com)"
+    negada = requests.post(f"{ENTRA}/site/entrar", json={"idToken": idp(f"zz.estranha{uid}@exemplo.com"), "site": slug}, timeout=10)
+    assert negada.status_code == 403 and negada.json()["contato"] == "Maria Souza (maria@exemplo.com)"
+    # sem login válido nada do contato vaza
+    assert "contato" not in requests.post(f"{ENTRA}/site/entrar", json={"idToken": "lixo", "site": slug}, timeout=10).text
+    assert "Maria" not in get(f"/{slug}/").text and "Maria" not in get(f"/{slug}/.time.json").text

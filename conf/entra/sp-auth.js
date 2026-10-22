@@ -433,7 +433,7 @@ function createSiteAcesso(file, restritosDir, now) {
     },
     get(alvo) {
       const d = lista();
-      return { ativo: restrito(alvo), emails: (d && d[alvo] && d[alvo].emails) || [], por: (d && d[alvo] && d[alvo].por) || null, em: (d && d[alvo] && d[alvo].em) || null };
+      return { ativo: restrito(alvo), emails: (d && d[alvo] && d[alvo].emails) || [], por: (d && d[alvo] && d[alvo].por) || null, em: (d && d[alvo] && d[alvo].em) || null, contato: (d && d[alvo] && d[alvo].contato) || "" };
     },
     // Páginas (pastas do 1º nível) restritas de um time
     paginas(time) {
@@ -463,9 +463,9 @@ function createSiteAcesso(file, restritosDir, now) {
       }
     },
     // Grava a lista e só depois liga o marcador: o toggle só vale se o marcador foi gravado
-    set(alvo, ativo, emails, por) {
+    set(alvo, ativo, emails, por, contato = "") {
       const d = lista() || {};
-      d[alvo] = { emails, por, em: new Date(now()).toISOString() };
+      d[alvo] = { emails, por, contato, em: new Date(now()).toISOString() };
       salvar(d);
       if (ativo) {
         fs.mkdirSync(pathLib.dirname(marcador(alvo)), { recursive: true, mode: 0o755 });
@@ -911,7 +911,9 @@ function createApp(o) {
       }
       const antes = sites.get(alvo);
       const eraAtivo = antes.ativo;
-      try { sites.set(alvo, b.ativo, emails, u.username); } catch { throw new HttpError(502, { erro: "falha_ao_gravar" }); }
+      // quem aprova pedidos de acesso (nome ou e-mail): só aparece para quem entrou com conta Microsoft e foi negado
+      const contato = String(b.contato || "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 120);
+      try { sites.set(alvo, b.ativo, emails, u.username, contato); } catch { throw new HttpError(502, { erro: "falha_ao_gravar" }); }
       if (b.ativo && !sites.restrito(alvo)) throw new HttpError(502, { erro: "falha_ao_ligar" });   // só vale com o marcador gravado
       const add = emails.filter((e) => !antes.emails.map((x) => x.toLowerCase()).includes(e));
       const rem = antes.emails.map((x) => x.toLowerCase()).filter((e) => !emails.includes(e));
@@ -930,7 +932,7 @@ function createApp(o) {
       if (!sites.restrito(alvo)) throw new HttpError(404, { erro: "nao_restrito" });
       if (!(await temAcesso(email, alvo, true))) {
         audit(email, "acesso_site_negado", `/${alvo}`);
-        throw new HttpError(403, { erro: "sem_acesso" });
+        throw new HttpError(403, { erro: "sem_acesso", contato: sites.get(alvo).contato });
       }
       nomes.set(email, nome);
       audit(email, "acesso_site_entrada", `/${alvo}`);
