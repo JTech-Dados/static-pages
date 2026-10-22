@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Static Pages</title>
+  <link rel="icon" href="../static/img/icons/favicon-32x32.png" type="image/png">
+  <link rel="stylesheet" href="painel.css">
+</head>
+<body>
+  <header>
+    <a class="logo" data-go="files/" aria-label="Arquivos"><img src="../static/img/logo.svg" alt=""></a>
+    <span class="spacer"></span>
+  </header>
+
+  <nav class="side" aria-label="Menu do painel">
+    <a data-go="files/" href="#">
+      <i class="material-icons" aria-hidden="true">folder</i>
+      Arquivos
+    </a>
+    <hr>
+    <a data-go="times" href="#" id="nav-acessos" hidden>
+      <i class="material-icons" aria-hidden="true">groups</i>
+      Acessos
+    </a>
+    <a data-go="times/api.html" href="#" aria-current="page">
+      <i class="material-icons" aria-hidden="true">vpn_key</i>
+      Tokens de API
+    </a>
+    <a data-go="settings/profile" href="#">
+      <i class="material-icons" aria-hidden="true">settings_applications</i>
+      Configurações
+    </a>
+    <button type="button" id="logout">
+      <i class="material-icons" aria-hidden="true">exit_to_app</i>
+      Sair
+    </button>
+  </nav>
+
+  <main id="app">
+    <section class="intro page-head">
+      <div>
+        <h2>Tokens de API</h2>
+        <p>Para scripts e automações publicarem páginas no seu time, sem abrir o painel. O token vale como a sua conta: quem o tiver publica o que você publicaria. Trate como senha.</p>
+      </div>
+      <button class="btn" id="btn-new" type="button" hidden>+ Novo token</button>
+    </section>
+
+    <div id="content"></div>
+
+    <section id="uso" hidden>
+      <div class="section-title">Como usar</div>
+      <p class="hint">Troque o token por uma sessão e publique com a API do painel. O envio precisa informar o tamanho (<code>Content-Length</code>); o <code>curl --data-binary</code> já faz isso.</p>
+      <pre class="code" id="exemplo"></pre>
+      <div class="dlg-actions" style="justify-content:flex-start"><button class="btn secondary sm" type="button" id="copy-exemplo">Copiar exemplo</button></div>
+      <p class="hint" style="margin-top:12px">Para atualizar uma página sem perder a versão anterior, apague o arquivo (vai para a lixeira por 30 dias) e publique de novo; <code>override=true</code> sobrescreve sem lixeira.</p>
+    </section>
+  </main>
+
+  <dialog id="dlg-new">
+    <form method="dialog" id="form-new">
+      <h2>Novo token</h2>
+      <p class="hint">Dê um nome que diga onde ele será usado (ex.: "Job de vendas").</p>
+      <label>Nome <input type="text" name="nome" maxlength="60" required autocomplete="off"></label>
+      <label>Validade <select class="full" name="dias"></select></label>
+      <div class="dlg-actions">
+        <button class="btn secondary" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn" value="ok">Criar token</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-token">
+    <form method="dialog">
+      <h2>Token criado</h2>
+      <p class="hint">Copie agora: ele não será mostrado de novo.</p>
+      <div class="secret" id="token-valor"></div>
+      <div class="dlg-actions">
+        <button class="btn secondary" type="button" id="copy-token">Copiar</button>
+        <button class="btn" value="ok">Pronto</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // Tokens de API pessoais. Usa a sessão do painel (localStorage "jwt") e as rotas
+    // <prefixo>/admin/entra/api/tokens (sp-auth). Todo texto entra por textContent.
+    const BASE = location.pathname.replace(/\/admin(\/.*)?$/, "");
+    const ENTRA = BASE + "/admin/entra";
+    const $ = (s) => document.querySelector(s);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const token = localStorage.getItem("jwt");
+    let eu = null;
+
+    // links do menu (o painel vive sob <prefixo>/admin/)
+    document.querySelectorAll("[data-go]").forEach((a) => { a.href = BASE + "/admin/" + a.dataset.go; });
+
+    // Ícones: reaproveita a fonte Material Icons do próprio File Browser (nome versionado: descobre o CSS)
+    (async function loadPanelIcons() {
+      try {
+        const html = await (await fetch(BASE + "/admin/", { cache: "force-cache" })).text();
+        const href = (html.match(/href="([^"]+\/assets\/index-[^"]+\.css)"/) || [])[1];
+        if (!href) return;
+        const css = await (await fetch(href, { cache: "force-cache" })).text();
+        const face = (css.match(/@font-face\{[^}]*Material Icons[^}]*\}/) || [])[0];
+        if (!face) return;
+        const base = href.slice(0, href.lastIndexOf("/") + 1);
+        const style = document.createElement("style");
+        style.textContent = face.replace(/url\(\.\//g, `url(${base}`);
+        document.head.append(style);
+      } catch { /* sem ícones, o menu continua com os textos */ }
+    })();
+
+    function toast(msg, isError = false) {
+      const t = $("#toast");
+      t.textContent = msg;
+      t.className = "show" + (isError ? " error" : "");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => (t.className = ""), 3200);
+    }
+
+    const req = async (path, opts = {}) => {
+      const r = await fetch(ENTRA + path, { ...opts, headers: { "X-Auth": token, "Content-Type": "application/json", ...(opts.headers || {}) } });
+      let data = {};
+      try { data = await r.json(); } catch { /* sem corpo */ }
+      return { status: r.status, data };
+    };
+
+    const fmtData = (iso) => (iso ? new Date(iso).toLocaleDateString("pt-BR") : "nunca");
+    const fmtQuando = (iso) => (iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "nunca usado");
+    const PAPEL = { admin: "Admin", editor: "Editor", leitor: "Leitor" };
+
+    function aviso(texto) {
+      $("#btn-new").hidden = true;
+      $("#uso").hidden = true;
+      $("#content").replaceChildren(el("div", "notice", texto));
+    }
+
+    function exemploCurl() {
+      const base = location.origin + BASE;
+      return [
+        `BASE=${base}`,
+        `JWT=$(curl -s -X POST "$BASE/admin/entra/api/sessao" -H 'Content-Type: application/json' \\`,
+        `      -d '{"token":"sp_..."}' | jq -r .jwt)`,
+        `curl -s -X POST "$BASE/admin/api/resources/relatorio-mensal/index.html?override=false" \\`,
+        `     -H "X-Auth: $JWT" -H 'Content-Type: text/html' --data-binary @relatorio.html`,
+      ].join("\n");
+    }
+
+    async function load() {
+      const r = await req("/api/tokens");
+      if (r.status === 401) return aviso("Sua sessão expirou. Entre de novo no painel.");
+      if (r.status !== 200) return aviso("Não foi possível carregar os tokens.");
+      const lista = r.data;
+      $("#btn-new").hidden = false;
+      $("#uso").hidden = false;
+      $("#exemplo").textContent = exemploCurl();
+      if (!lista.length) {
+        $("#content").replaceChildren(el("div", "empty", "Você ainda não tem tokens. Crie um para usar numa automação."));
+        return;
+      }
+      const wrap = el("div", "table-wrap");
+      const table = el("table", "table");
+      const head = el("tr");
+      for (const h of ["Nome", "Papel", "Criado em", "Expira em", "Último uso", ""]) head.append(el("th", null, h));
+      const thead = el("thead");
+      thead.append(head);
+      table.append(thead);
+      const body = el("tbody");
+      for (const t of lista) {
+        const tr = el("tr");
+        tr.append(el("td", null, t.nome), el("td", null, PAPEL[t.papel] || t.papel), el("td", "when", fmtData(t.criado)), el("td", "when", fmtData(t.expira)), el("td", "when", fmtQuando(t.ultimoUso)));
+        const acts = el("td", "acts");
+        const b = el("button", "btn danger sm", "Revogar");
+        b.type = "button";
+        b.dataset.revogar = t.id;
+        b.onclick = async () => {
+          if (!confirm(`Revogar o token "${t.nome}"? Quem o usa deixa de publicar na hora.`)) return;
+          const x = await req("/api/tokens/revogar", { method: "POST", body: JSON.stringify({ id: t.id }) });
+          toast(x.status === 200 ? "Token revogado." : "Não foi possível revogar.", x.status !== 200);
+          load();
+        };
+        acts.append(b);
+        tr.append(acts);
+        body.append(tr);
+      }
+      table.append(body);
+      wrap.append(table);
+      $("#content").replaceChildren(wrap);
+    }
+
+    $("#btn-new").onclick = () => {
+      const f = $("#form-new");
+      f.reset();
+      const sel = f.dias;
+      const opcoes = eu && eu.admin ? [[30, "30 dias"], [90, "90 dias (máximo para admin)"]] : [[30, "30 dias"], [90, "90 dias"], [365, "365 dias"]];
+      sel.replaceChildren(...opcoes.map(([v, t]) => new Option(t, String(v))));
+      sel.value = "90";
+      $("#dlg-new").returnValue = "";
+      $("#dlg-new").showModal();
+    };
+    $("#dlg-new").addEventListener("close", async () => {
+      if ($("#dlg-new").returnValue !== "ok") return;
+      const f = $("#form-new");
+      const r = await req("/api/tokens", { method: "POST", body: JSON.stringify({ nome: f.nome.value, dias: Number(f.dias.value) }) });
+      if (r.status === 200) {
+        $("#token-valor").textContent = r.data.token;
+        $("#dlg-token").showModal();
+        load();
+      } else if (r.status === 409) toast("Você já tem 5 tokens ativos. Revogue um antes.", true);
+      else if (r.status === 400) toast("Confira o nome e a validade.", true);
+      else toast("Não foi possível criar o token.", true);
+    });
+    $("#dlg-token").addEventListener("close", () => { $("#token-valor").textContent = ""; });
+    $("#copy-token").onclick = async () => {
+      try { await navigator.clipboard.writeText($("#token-valor").textContent); toast("Copiado."); } catch { toast("Não foi possível copiar.", true); }
+    };
+    $("#copy-exemplo").onclick = async () => {
+      try { await navigator.clipboard.writeText($("#exemplo").textContent); toast("Copiado."); } catch { toast("Não foi possível copiar.", true); }
+    };
+    $("#logout").onclick = () => { localStorage.removeItem("jwt"); location.href = BASE + "/admin/login"; };
+
+    (async function init() {
+      if (!token) return aviso("Entre no painel para gerenciar tokens.");
+      let cfg = {};
+      try { cfg = await (await fetch(ENTRA + "/config", { cache: "no-store" })).json(); } catch { /* segue */ }
+      if (!cfg.habilitado) return aviso("Os tokens de API dependem do login Microsoft, que está desligado neste ambiente.");
+      const m = await req("/me");
+      if (m.status !== 200) return aviso("Sua sessão expirou. Entre de novo no painel.");
+      eu = m.data;
+      if (eu.admin) $("#nav-acessos").hidden = false;
+      if (!String(eu.usuario).includes("@")) return aviso("Tokens de API são para contas de e-mail (Microsoft). Esta conta entra com usuário e senha.");
+      load();
+    })();
+  </script>
+</body>
+</html>

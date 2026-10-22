@@ -4,7 +4,7 @@ import json
 import requests
 from playwright.sync_api import expect
 
-from conftest import ADMIN_PASS, ADMIN_USER, BASE, Api, in_container, login, login_token
+from conftest import ADMIN_PASS, ADMIN_USER, BASE, BASE_PATH, Api, in_container, login, login_token
 
 
 def card_do_time(pg, nome):
@@ -236,3 +236,53 @@ def test_leitor_so_consulta_e_baixa(page, admin, uid):
     expect(page.locator("[data-sp-chip] .sp-chip-role")).to_have_text("Leitor", timeout=15000)
     expect(page.locator("[data-sp-chip] .sp-chip-team")).to_have_text(nome)
     assert page.errors == []
+
+
+def test_login_tem_caminho_de_volta_para_a_home(page):
+    """A tela de login oferece "← Página inicial" além do guia."""
+    page.goto(f"{BASE}/admin/login")
+    voltar = page.locator("#login .sp-login-foot a", has_text="Página inicial")
+    expect(voltar).to_be_visible(timeout=15000)
+    assert voltar.get_attribute("href") == f"{BASE_PATH}/"
+    expect(page.locator("#login .sp-login-foot a", has_text="Como publicar")).to_be_visible()
+    voltar.click()
+    page.wait_for_url(f"{BASE}/")
+
+
+
+def test_ver_site_ao_lado_do_nome_na_lista(page, admin, uid, browser):
+    """Pastas que são página (e o index.html) ganham 'ver site': abre a página publicada sem sair do painel."""
+    slug, pessoa = f"zz-ver-{uid}", f"zz.ver{uid}@exemplo.com"
+    admin.mkdir(f"/{slug}")
+    admin.write(f"/{slug}/.time.json", json.dumps({"nome": "Ver"}))
+    admin.write(f"/{slug}/index.html", "<h1>time</h1>")
+    admin.write(f"/{slug}/pag/index.html", "<h1>pagina</h1>")
+    admin.write(f"/{slug}/dados/x.json", "{}")
+    admin.write(f"/{slug}/_interna/index.html", "<h1>x</h1>")
+    assert admin.add_user(pessoa, "SenhaTeste123456", f"/{slug}").ok
+
+    # membro: o endereço é <prefixo>/<time>/<pasta>/
+    login_token(page, Api(pessoa, "SenhaTeste123456").token)
+    pag = page.locator('#listing .item[aria-label="pag"] .sp-ver')
+    expect(pag).to_be_visible(timeout=15000)
+    assert pag.get_attribute("href") == f"{BASE}/{slug}/pag/" and pag.get_attribute("target") == "_blank"
+    assert pag.inner_text().startswith("ver site")
+    expect(page.locator('#listing .item[aria-label="dados"] .sp-ver')).to_have_count(0)        # pasta sem index.html
+    expect(page.locator('#listing .item[aria-label="_interna"] .sp-ver')).to_have_count(0)     # pastas internas não
+    # o index.html da raiz do time é a página do time
+    expect(page.locator('#listing .item[aria-label="index.html"] .sp-ver')).to_have_attribute("href", f"{BASE}/{slug}/")
+    # clicar no link não abre nem seleciona a linha
+    with page.context.expect_page() as nova:
+        pag.click()
+    assert nova.value.url == f"{BASE}/{slug}/pag/"
+    assert page.url.endswith("/admin/files/")
+    nova.value.close()
+    # dentro da pasta, o index.html aponta para a própria pasta
+    page.goto(f"{BASE}/admin/files/pag/")
+    expect(page.locator('#listing .item[aria-label="index.html"] .sp-ver')).to_have_attribute("href", f"{BASE}/{slug}/pag/", timeout=15000)
+
+    # admin: na raiz, a linha do time leva à página do time
+    ap = browser.new_page()
+    login_token(ap, admin.token)
+    expect(ap.locator(f'#listing .item[aria-label="{slug}"] .sp-ver')).to_have_attribute("href", f"{BASE}/{slug}/", timeout=15000)
+    ap.close()

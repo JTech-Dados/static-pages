@@ -70,6 +70,8 @@
       <a href="#espaco">Espaço</a>
       <a href="#quem-ve">Quem vê</a>
       <a href="#papeis">Papéis</a>
+      <a href="#restrito">Acesso restrito</a>
+      <a href="#automacao">Automatizar</a>
       <a href="#acesso">Pedir acesso</a>
       <a href="#visual">Visual</a>
     </nav>
@@ -83,7 +85,7 @@
         <li>Abra a pasta do seu time e crie uma pasta nova, por exemplo <code>relatorio-vendas</code>.</li>
         <li>Envie o seu arquivo para dentro dela e deixe o principal com o nome <code>index.html</code>.</li>
       </ol>
-      <p>Pronto: a página abre em <code>/&lt;time&gt;/relatorio-vendas/</code> (depois do endereço do site) e aparece sozinha na home, no grupo do seu time. Para atualizar, envie o arquivo de novo.</p>
+      <p>Pronto: a página abre em <code>/&lt;time&gt;/relatorio-vendas/</code> (depois do endereço do site) e aparece sozinha na home, no grupo do seu time. Na lista de arquivos do painel, o link <b>ver site ↗</b> ao lado da pasta (ou do <code>index.html</code>) abre a página publicada. Para atualizar, envie o arquivo de novo.</p>
     </section>
 
     <section id="links">
@@ -151,6 +153,46 @@
         </tbody>
       </table>
       <p>Quem muda o papel de alguém é um admin, na tela <b>Acessos</b>, aba <b>Usuários</b>. O papel aparece ao lado do seu nome na barra superior do painel.</p>
+    </section>
+
+    <section id="restrito">
+      <h2>Páginas com acesso restrito</h2>
+      <p>Por padrão, qualquer pessoa que alcance o endereço abre a página. Se o conteúdo é restrito, admins e editores do time podem <b>restringir o acesso do time</b> a e-mails autorizados: no painel, menu <b>Acesso restrito</b>, marque a opção e informe os e-mails (um por linha). Quem não está na lista vê uma tela de entrada com o login Microsoft e não lê o conteúdo.</p>
+      <ul>
+        <li><b>Quem entra sempre:</b> os e-mails da lista, os membros do time e os admins. Remover um e-mail vale na hora; a sessão dura 8 horas.</li>
+        <li><b>Por time, não por página:</b> a restrição vale para todas as páginas do time.</li>
+        <li class="nok" style="list-style:none;margin-left:-22px">O conteúdo restrito precisa ser <b>autocontido</b>: um HTML com imagens, estilos, scripts e dados <b>dentro do próprio arquivo</b>. Imagens, estilos e <code>fetch</code> de arquivos separados não carregam em páginas restritas (viram 401). Para um dashboard, embuta o JSON no HTML (<code>&lt;script type="application/json"&gt;</code>).</li>
+        <li>Na home aparece um cartão com cadeado e "Acesso restrito", sem título nem descrição. O <b>nome</b> do time continua visível.</li>
+        <li>Quem edita o time e os admins leem os arquivos pelo painel; quem tem acesso pode copiar e repassar o conteúdo. Dar acesso a um e-mail equivale a publicar para aquela pessoa.</li>
+      </ul>
+    </section>
+
+    <section id="automacao">
+      <h2>Automatizar com token de API</h2>
+      <p>Para um script gerar um HTML e publicá-lo sozinho (um relatório diário, por exemplo), use um <b>token de API</b>. Ele vale como a sua conta: publica só no seu time, o Leitor não publica, o espaço do time continua limitado e a autoria fica no seu nome.</p>
+      <ol>
+        <li>No painel, abra <b>Tokens de API</b> (conta de e-mail), clique em <b>+ Novo token</b>, dê um nome e escolha a validade. Copie o token na hora: ele não aparece de novo.</li>
+        <li>Guarde o token no cofre de segredos da ferramenta de automação, <b>nunca</b> no código nem num repositório. Se vazar, revogue na mesma tela.</li>
+        <li>No script, troque o token por uma sessão e publique:</li>
+      </ol>
+      <pre>BASE=https://&lt;domínio&gt;/pages
+JWT=$(curl -s -X POST "$BASE/admin/entra/api/sessao" -H 'Content-Type: application/json' \
+      -d '{"token":"sp_..."}' | jq -r .jwt)
+curl -s -X POST "$BASE/admin/api/resources/relatorio-mensal/index.html?override=false" \
+     -H "X-Auth: $JWT" -H 'Content-Type: text/html' --data-binary @relatorio.html</pre>
+      <p>Prefere Python? Baixe o <a href="publicar.py" download>publicar.py</a> (só a biblioteca padrão):</p>
+      <pre>export PAGES_TOKEN=sp_...
+python3 publicar.py --url https://&lt;domínio&gt;/pages --pasta relatorio-mensal relatorio.html</pre>
+      <p>A página abre em <code>/&lt;seu-time&gt;/relatorio-mensal/</code> e aparece na home. Admin informa o time com <code>--time</code>.</p>
+      <table class="tabela">
+        <thead><tr><th>Quero…</th><th>Faça</th></tr></thead>
+        <tbody>
+          <tr><td>Criar uma página nova</td><td><code>override=false</code> (padrão): se a pasta já existir, o servidor responde 409.</td></tr>
+          <tr><td>Atualizar guardando a versão anterior</td><td>Apague o arquivo (<code>DELETE</code>, vai para a lixeira por 30 dias) e publique de novo; no <code>publicar.py</code>, <code>--atualizar</code>.</td></tr>
+          <tr><td>Sobrescrever direto</td><td><code>override=true</code>: <b>sem lixeira</b>; a versão anterior só existe no backup diário.</td></tr>
+        </tbody>
+      </table>
+      <p class="nok" style="margin-top:12px">O envio precisa informar o tamanho (<code>Content-Length</code>): o <code>curl --data-binary</code> e o <code>publicar.py</code> já fazem isso; envios em <code>Transfer-Encoding: chunked</code> recebem 411. O token expira (30, 90 ou 365 dias; admin no máximo 90): crie outro antes de vencer.</p>
     </section>
 
     <section id="acesso">

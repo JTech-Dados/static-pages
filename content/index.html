@@ -110,6 +110,7 @@
     .title a::after { content: ""; position: absolute; inset: 0; border-radius: 8px; }
     .title a:focus-visible { outline: none; }
     .card:has(.title a:focus-visible) { outline: 2px solid var(--link); outline-offset: 2px; }
+    .card.restrito .mark { background: var(--canvas-soft-2); }
     .card.is-group { align-items: start; }
     .card.is-group:hover { transform: none; box-shadow: var(--ring), var(--elev-2); }
 
@@ -204,6 +205,7 @@
 
     async function listDir(parts) {
       const r = await fetch(BASE + "/_pastas" + urlOf(parts), { cache: "no-cache" });
+      if (r.status === 401) return { dirs: [], hasIndex: false, restrito: true };   // time restrito: só aparece o cadeado
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const entries = await r.json();
       return {
@@ -226,6 +228,12 @@
       const [listing, meta] = await Promise.all([
         listDir(parts).catch(() => ({ dirs: [], hasIndex: false })), loadMeta(parts),
       ]);
+      if (listing.restrito) {
+        // só o 1º nível mostra o cartão; o conteúdo (nomes, títulos, descrições) não é revelado
+        return parts.length === 1
+          ? { name: parts[0], restrito: true, href: urlOf(parts), titulo: "Acesso restrito", descricao: "Entre com a sua conta Microsoft para ver as páginas deste time.", tag: "", ordem: 1000, children: [] }
+          : null;
+      }
       if (meta.oculto === true) return null;
       const ok = listing.hasIndex;
       const dirs = parts.length < MAX_DEPTH ? listing.dirs : [];
@@ -267,12 +275,25 @@
       return svg;
     }
 
+    function lock() {
+      const svg = document.createElementNS(SVG_NS, "svg");
+      for (const [k, v] of Object.entries({ width: 22, height: 22, viewBox: "0 0 24 24", fill: "none",
+        stroke: "currentColor", "stroke-width": 1.75, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true" }))
+        svg.setAttribute(k, v);
+      const rect = document.createElementNS(SVG_NS, "rect");
+      for (const [k, v] of Object.entries({ x: 4, y: 11, width: 16, height: 10, rx: 2 })) rect.setAttribute(k, v);
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", "M8 11V7a4 4 0 0 1 8 0v4");
+      svg.append(rect, path);
+      return svg;
+    }
+
     function card(item, subs, i) {
-      const art = el("article", item.href ? "card" : "card is-group");
+      const art = el("article", item.restrito ? "card restrito" : item.href ? "card" : "card is-group");
       art.style.animationDelay = `${Math.min(i, 12) * 30}ms`;
 
       const mark = el("span", "mark");
-      mark.append(globe());
+      mark.append(item.restrito ? lock() : globe());
       art.append(mark);
 
       const body = el("div");
@@ -334,7 +355,8 @@
       const visibleSubs = selfHit ? subs : subs.filter((s) => matches(q, s.texto));
       return selfHit || visibleSubs.length ? [it, visibleSubs] : null;
     }
-    const countPages = (rows) => rows.reduce((n, [it, subs]) => n + (it.href ? 1 : 0) + subs.length, 0);
+    // cartão de time restrito não conta como página (o visitante não sabe quantas há lá dentro)
+    const countPages = (rows) => rows.reduce((n, [it, subs]) => n + (it.href && !it.restrito ? 1 : 0) + subs.length, 0);
 
     // Seções: um "pool" por time + "Outras páginas".
     // Dentro de um time, cada subpasta vira um card; a página da raiz
@@ -343,6 +365,7 @@
       const sections = [];
       const loose = [];
       for (const it of items) {
+        if (it.restrito) { sections.push({ title: it.team || prettify(it.name), path: `/${it.name}/`, restrito: true, cards: [it] }); continue; }
         if (!it.team) { loose.push(it); continue; }
         const cards = [];
         if (it.href) cards.push({ ...it, titulo: "Página do time", descricao: it.descricao, tag: "", children: [] });
@@ -377,7 +400,7 @@
             const head = el("div", "pool-head");
             head.append(el("h2", null, s.title));
             const n = countPages(rows);
-            head.append(el("span", "pool-count", `${n} ${n === 1 ? "página" : "páginas"}`));
+            head.append(el("span", "pool-count", s.restrito ? "restrito" : `${n} ${n === 1 ? "página" : "páginas"}`));
             sec.append(head);
           }
           const g = el("div", "grid");

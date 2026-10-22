@@ -30,7 +30,7 @@ function mint(claims = {}, { key = privateKey, kid = "k1", alg = "RS256" } = {})
   return `${head}.${body}.${sig}`;
 }
 
-async function setup() {
+async function setup({ clock } = {}) {
   // File Browser de mentira
   const users = [
     { id: 1, username: "admin", perm: { admin: true } },
@@ -38,6 +38,8 @@ async function setup() {
     { id: 3, username: "ana.silva@empresa.com", perm: { admin: false }, scope: "/time-a" },
     { id: 4, username: "joao", perm: { admin: false }, scope: "/time-a" },
     { id: 5, username: "chefe@empresa.com", perm: { admin: true } },
+    { id: 6, username: "editor-a@empresa.com", perm: { admin: false, create: true, modify: true }, scope: "/time-a" },
+    { id: 7, username: "editor-b@empresa.com", perm: { admin: false, create: true, modify: true }, scope: "/time-b" },
   ];
   const passwords = {};
   const fb = http.createServer(async (req, res) => {
@@ -48,6 +50,9 @@ async function setup() {
     if (req.method === "POST" && url === "/login") {
       const b = JSON.parse(body);
       if (b.username === "sp-svc" && b.password === "svc-pass") return res.end("svc-token");
+      // login de usuário com a senha trocada pelo sp-auth: devolve um JWT de teste do próprio usuário
+      const du = users.find((x) => x.username === b.username);
+      if (du && passwords[du.id] === b.password) return res.end(`x.${b64u({ user: { id: du.id } })}.y`);
       res.statusCode = 403; return res.end();
     }
     const isAdmin = auth === "svc-token" || auth === "admin-token";
@@ -83,15 +88,22 @@ async function setup() {
     nomesFile: path.join(dir, "nomes.json"),
     auditFile: path.join(dir, "auditoria.log"),
     cotaPadraoMb: 200,
-    now: () => Date.now(),
+    apiTokensFile: path.join(dir, "api-tokens.json"),
+    siteAcessoFile: path.join(dir, "site-acesso.json"),
+    restritosDir: path.join(dir, "restritos"),
+    siteSegredoFile: path.join(dir, "site-segredo"),
+    base: "/pages",
+    now: () => (clock ? clock.t : Date.now()),
   });
   fs.mkdirSync(path.join(dir, "srv", "time-a"), { recursive: true });
   fs.writeFileSync(path.join(dir, "srv", "time-a", ".time.json"), JSON.stringify({ nome: "Time A" }));
+  fs.mkdirSync(path.join(dir, "srv", "time-b"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "srv", "time-b", ".time.json"), JSON.stringify({ nome: "Time B" }));
   await new Promise((r) => app.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${app.address().port}/admin/entra`;
   const call = async (method, p, body, headers = {}) => {
     const r = await fetch(base + p, { method, headers: { "Content-Type": "application/json", ...headers }, body: body ? JSON.stringify(body) : undefined });
-    return { status: r.status, data: await r.json() };
+    return { status: r.status, data: await r.json(), setCookie: r.headers.get("set-cookie") };
   };
   return { call, passwords, users, dir, close: () => { app.closeAllConnections(); fb.closeAllConnections(); app.close(); fb.close(); } };
 }
@@ -332,3 +344,276 @@ test("desabilitado (sem tenant/client): só /config responde", async () => {
   app.closeAllConnections();
   app.close();
 });
+
+// ---------- tokens de API ----------
+const jwtDe = (id) => `x.${b64u({ user: { id } })}.y`;   // sessão de teste do File Browser
+
+test("token de API: cria uma vez, guarda só o hash, lista, revoga e limita a 5", async () => {
+  const t = await setup();
+  const h = { "X-Auth": jwtDe(3) };
+  const c = await t.call("POST", "/api/tokens", { nome: "  Job   de vendas ", dias: 90 }, h);
+  assert.equal(c.status, 200);
+  assert.match(c.data.token, /^sp_[A-Za-z0-9_-]{43}$/);
+  assert.equal(c.data.nome, "Job de vendas");
+  assert.equal(c.data.papel, "leitor");   // o usuário de teste não tem create/modify
+  const disco = fs.readFileSync(path.join(t.dir, "api-tokens.json"), "utf8");
+  assert.ok(!disco.includes(c.data.token), "o token em claro não pode ir para o disco");
+  assert.ok(disco.includes(crypto.createHash("sha256").update(c.data.token).digest("hex")));
+
+  const l = await t.call("GET", "/api/tokens", null, h);
+  assert.equal(l.data.length, 1);
+  assert.ok(!JSON.stringify(l.data).includes(c.data.token) && l.data[0].id === c.data.id);
+  assert.equal((await t.call("GET", "/api/tokens", null, { "X-Auth": jwtDe(5) })).data.length, 0);   // só os do dono
+
+  for (let i = 0; i < 4; i++) assert.equal((await t.call("POST", "/api/tokens", { nome: `t${i}` }, h)).status, 200);
+  assert.equal((await t.call("POST", "/api/tokens", { nome: "6º" }, h)).status, 409);
+  assert.equal((await t.call("POST", "/api/tokens", { nome: "x", dias: 7 }, h)).status, 400);
+  assert.equal((await t.call("POST", "/api/tokens", { nome: " " }, h)).status, 400);
+
+  // revogar token de outra pessoa: mesma resposta de "não existe"; o dono revoga
+  assert.equal((await t.call("POST", "/api/tokens/revogar", { id: c.data.id }, { "X-Auth": jwtDe(5) })).status, 404);
+  assert.equal((await t.call("POST", "/api/tokens/revogar", { id: c.data.id }, h)).status, 200);
+  assert.equal((await t.call("POST", "/api/sessao", { token: c.data.token })).status, 401);
+  assert.equal((await t.call("GET", "/api/tokens", null, h)).data.length, 4);
+  t.close();
+});
+
+test("token de API: quem pode ter (admin local não; admin por e-mail com validade ≤ 90 dias)", async () => {
+  const t = await setup();
+  assert.equal((await t.call("POST", "/api/tokens", { nome: "x" }, { "X-Auth": jwtDe(1) })).status, 403);   // admin local, sem @
+  const chefe = { "X-Auth": jwtDe(5) };
+  assert.equal((await t.call("POST", "/api/tokens", { nome: "x", dias: 365 }, chefe)).data.erro, "validade_invalida");
+  const ok = await t.call("POST", "/api/tokens", { nome: "x", dias: 90 }, chefe);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.data.papel, "admin");
+  assert.equal((await t.call("POST", "/api/tokens", { nome: "x" })).status, 401);   // sem sessão
+  t.close();
+});
+
+test("token de API: troca por sessão do File Browser (e recusa token ruim, expirado, removido, promovido)", async () => {
+  const clock = { t: Date.now() };
+  const t = await setup({ clock });
+  const h = { "X-Auth": jwtDe(3) };
+  const { data } = await t.call("POST", "/api/tokens", { nome: "job", dias: 30 }, h);
+
+  const s = await t.call("POST", "/api/sessao", { token: data.token });
+  assert.equal(s.status, 200);
+  assert.equal(s.data.usuario, "ana.silva@empresa.com");
+  assert.equal(s.data.jwt, jwtDe(3));                       // JWT do próprio usuário
+  assert.ok(typeof t.passwords[3] === "string" && t.passwords[3].length >= 24);
+
+  const ruim = [{ token: "sp_" + "a".repeat(43) }, { token: "xyz" }, { token: 5 }, {}, { token: "sp_" + "a".repeat(200) }];
+  for (const b of ruim) assert.deepEqual((await t.call("POST", "/api/sessao", b)).data, { erro: "token_invalido" });
+
+  // promoção depois de criar: o token não amplia o papel
+  t.users[2].perm = { admin: true };
+  assert.equal((await t.call("POST", "/api/sessao", { token: data.token })).status, 401);
+  t.users[2].perm = { admin: false, create: true };   // virou Editor: acima do Leitor gravado
+  assert.equal((await t.call("POST", "/api/sessao", { token: data.token })).status, 401);
+  t.users[2].perm = { admin: false };
+
+  // rebaixar mantém a troca (com o papel menor); removido e recriado com outro id perde os tokens
+  const { data: d2 } = await t.call("POST", "/api/tokens", { nome: "ed" }, { "X-Auth": jwtDe(5) });
+  t.users[4].perm = { admin: false, create: true };   // admin rebaixado a Editor
+  assert.equal((await t.call("POST", "/api/sessao", { token: d2.token })).status, 200);
+  t.users[2].id = 99;
+  assert.equal((await t.call("POST", "/api/sessao", { token: data.token })).status, 401);
+  t.users[2].id = 3;
+
+  // expira
+  clock.t += 31 * 864e5;
+  assert.equal((await t.call("POST", "/api/sessao", { token: data.token })).status, 401);
+
+  // corpo grande
+  const big = await t.call("POST", "/api/sessao", { token: "sp_" + "a".repeat(20000) });
+  assert.equal(big.status, 413);
+  t.close();
+});
+
+test("token de API: trocas simultâneas do mesmo usuário e /login Microsoft não se atropelam", async () => {
+  const t = await setup();
+  const { data } = await t.call("POST", "/api/tokens", { nome: "job" }, { "X-Auth": jwtDe(3) });
+  const rs = await Promise.all(Array.from({ length: 8 }, () => t.call("POST", "/api/sessao", { token: data.token })));
+  assert.deepEqual(rs.map((r) => r.status), Array(8).fill(200));
+  assert.ok(rs.every((r) => r.data.jwt === jwtDe(3)));
+  const mix = await Promise.all([
+    t.call("POST", "/api/sessao", { token: data.token }),
+    t.call("POST", "/login", { idToken: mint() }),
+    t.call("POST", "/api/sessao", { token: data.token }),
+  ]);
+  assert.deepEqual(mix.map((r) => r.status), [200, 200, 200]);
+  t.close();
+});
+
+test("token de API: nenhum token em claro vai para o histórico nem para o disco", async () => {
+  const t = await setup();
+  const { data } = await t.call("POST", "/api/tokens", { nome: "job" }, { "X-Auth": jwtDe(3) });
+  await t.call("POST", "/api/sessao", { token: data.token });
+  await t.call("POST", "/api/tokens/revogar", { id: data.id }, { "X-Auth": jwtDe(3) });
+  const log = fs.readFileSync(path.join(t.dir, "auditoria.log"), "utf8");
+  assert.match(log, /acesso_token_criado/);
+  assert.match(log, /acesso_token_revogado/);
+  for (const f of fs.readdirSync(t.dir)) {
+    const p = path.join(t.dir, f);
+    if (fs.statSync(p).isFile()) assert.ok(!fs.readFileSync(p, "utf8").includes(data.token), `token em claro em ${f}`);
+  }
+  t.close();
+});
+
+// ---------- sites restritos (por time) ----------
+const cookieDe = (r) => (r.setCookie || "").split(";")[0];   // "nome=valor" para reenviar no gate
+
+async function ligaRestrito(t, emails = ["convidada@empresa.com"], quem = 6) {
+  const r = await t.call("PUT", "/site/acesso", { time: "time-a", ativo: true, emails }, { "X-Auth": jwtDe(quem) });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  return r;
+}
+// o NGINX passa a URI original em X-Orig-Uri ($request_uri, com o prefixo público)
+const gate = (t, uri, cookie) => t.call("GET", "/site/auth", null, { "X-Orig-Uri": "/pages" + uri, ...(cookie ? { Cookie: cookie } : {}) });
+
+test("site restrito: quem edita a lista (admin e editor do próprio time; leitor e outro time não)", async () => {
+  const t = await setup();
+  const body = { time: "time-a", ativo: true, emails: ["Ana@Empresa.com", " ana@empresa.com ", "joao@empresa.com"] };
+  assert.equal((await t.call("PUT", "/site/acesso", body, { "X-Auth": jwtDe(3) })).status, 403);   // leitor do time
+  assert.equal((await t.call("PUT", "/site/acesso", body, { "X-Auth": jwtDe(7) })).status, 403);   // editor de outro time
+  assert.equal((await t.call("PUT", "/site/acesso", body)).status, 401);
+  const ok = await t.call("PUT", "/site/acesso", body, { "X-Auth": jwtDe(6) });                     // editor do time
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.data.emails, ["ana@empresa.com", "joao@empresa.com"]);                         // minúsculas, sem duplicata
+  assert.ok(fs.existsSync(path.join(t.dir, "restritos", "time-a")), "o marcador liga o toggle");
+  assert.equal((await t.call("GET", "/site/acesso?time=time-a", null, { "X-Auth": jwtDe(5) })).data.ativo, true);   // admin lê
+  assert.equal((await t.call("GET", "/site/acesso?time=time-a", null, { "X-Auth": jwtDe(7) })).status, 403);
+
+  // validação
+  const h = { "X-Auth": jwtDe(6) };
+  assert.equal((await t.call("PUT", "/site/acesso", { ...body, emails: ["sem-arroba"] }, h)).data.erro, "email_invalido");
+  assert.equal((await t.call("PUT", "/site/acesso", { ...body, time: "../etc" }, h)).status, 400);
+  assert.equal((await t.call("PUT", "/site/acesso", { ...body, time: "time-z" }, h)).status, 404);
+  assert.equal((await t.call("PUT", "/site/acesso", { time: "time-a", ativo: "sim", emails: [] }, h)).status, 400);
+  assert.equal((await t.call("PUT", "/site/acesso", { ...body, emails: Array.from({ length: 201 }, (_, i) => `p${i}@empresa.com`) }, h)).data.erro, "emails_demais");
+
+  // desligar remove o marcador e mantém a lista
+  const off = await t.call("PUT", "/site/acesso", { ...body, ativo: false }, h);
+  assert.equal(off.data.ativo, false);
+  assert.equal(off.data.emails.length, 2);
+  assert.ok(!fs.existsSync(path.join(t.dir, "restritos", "time-a")));
+  const log = fs.readFileSync(path.join(t.dir, "auditoria.log"), "utf8");
+  assert.match(log, /acesso_site_lista.*\+ana@empresa.com,joao@empresa.com/);
+  assert.match(log, /acesso_site_ligado/);
+  assert.match(log, /acesso_site_desligado/);
+  t.close();
+});
+
+test("site restrito: entrada com ID token (lista, membro do time e admin; fora disso, não)", async () => {
+  const t = await setup();
+  await ligaRestrito(t, ["convidada@empresa.com"]);
+  const entrar = (email) => t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: email }), site: "time-a" });
+
+  const conv = await entrar("Convidada@Empresa.com");                       // na lista (caixa alta)
+  assert.equal(conv.status, 200);
+  assert.match(conv.setCookie, /^sp_s_time-a=v1\./);
+  assert.match(conv.setCookie, /HttpOnly/);
+  assert.match(conv.setCookie, /Secure/);
+  assert.match(conv.setCookie, /SameSite=Lax/);
+  assert.match(conv.setCookie, /Path=\/pages\/time-a\//);
+  assert.match(conv.setCookie, /Max-Age=28800/);
+  assert.ok(!JSON.stringify(conv.data).includes("v1."), "o cookie não vai no corpo");
+
+  assert.equal((await entrar("ana.silva@empresa.com")).status, 200);       // membro do time, fora da lista
+  assert.equal((await entrar("chefe@empresa.com")).status, 200);           // admin
+  const negado = await entrar("estranha@empresa.com");
+  assert.equal(negado.status, 403);
+  assert.equal(negado.setCookie, null);
+  assert.equal((await entrar("editor-b@empresa.com")).status, 403);        // membro de OUTRO time
+  assert.equal((await t.call("POST", "/site/entrar", { idToken: "lixo", site: "time-a" })).status, 401);
+  assert.equal((await t.call("POST", "/site/entrar", { idToken: mint(), site: "time-b" })).status, 404);   // time-b não é restrito
+  assert.match(fs.readFileSync(path.join(t.dir, "auditoria.log"), "utf8"), /acesso_site_negado\t\/time-a/);
+  t.close();
+});
+
+test("site restrito: o gate (cookie válido, adulterado, expirado, de outro time, acesso removido)", async () => {
+  const clock = { t: Date.now() };
+  const t = await setup({ clock });
+  await ligaRestrito(t, ["convidada@empresa.com"]);
+  const cookie = cookieDe(await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "convidada@empresa.com" }), site: "time-a" }));
+
+  assert.equal((await gate(t, "/time-a/relatorio/", cookie)).status, 200);
+  assert.equal((await gate(t, "/time-a/", cookie)).status, 200);
+  assert.equal((await gate(t, "/time-a/relatorio/")).status, 401);                          // sem cookie
+  assert.equal((await gate(t, "/time-a/", cookie.replace(/.$/, (c) => (c === "A" ? "B" : "A")))).status, 401);   // HMAC adulterado
+  assert.equal((await gate(t, "/time-a/", "sp_s_time-a=lixo")).status, 401);
+  assert.equal((await gate(t, "/", cookie)).status, 401);                                    // sem time na URI
+  // URIs que o NGINX normalizaria de outro jeito são negadas, nunca reinterpretadas (sem desvio por "..", "//", "%")
+  for (const feio of ["/time-b/../time-a/", "/time-a/%2e%2e/", "//time-a/", "/./time-a/", "/time%2da/", "/time-b/..%2ftime-a/"]) {
+    assert.equal((await gate(t, feio, cookie)).status, 401, feio);
+  }
+  assert.equal((await gate(t, "/time-a/x?y=../z", cookie)).status, 200);                    // query não conta
+  assert.equal((await t.call("GET", "/site/auth", null, { "X-Orig-Uri": "/time-a/", Cookie: cookie })).status, 200);   // sem prefixo (acesso direto)
+  // cookie de um time não abre o outro (mesmo se o outro fosse restrito)
+  const outro = await t.call("PUT", "/site/acesso", { time: "time-b", ativo: true, emails: [] }, { "X-Auth": jwtDe(7) });
+  assert.equal(outro.status, 200);
+  assert.equal((await gate(t, "/time-b/", cookie.replace("sp_s_time-a", "sp_s_time-b"))).status, 401);
+
+  // remover o e-mail da lista revoga na hora (o cookie continua válido, mas a lista é relida)
+  await t.call("PUT", "/site/acesso", { time: "time-a", ativo: true, emails: [] }, { "X-Auth": jwtDe(6) });
+  assert.equal((await gate(t, "/time-a/", cookie)).status, 403);
+
+  // membros e admin passam com a lista vazia
+  const membro = cookieDe(await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "ana.silva@empresa.com" }), site: "time-a" }));
+  assert.equal((await gate(t, "/time-a/", membro)).status, 200);
+
+  // expira em 8 h, sem renovação
+  clock.t += 8 * 3600e3 + 1500;
+  assert.equal((await gate(t, "/time-a/", membro)).status, 401);
+  t.close();
+});
+
+test("site restrito: falha fechado (lista corrompida, marcador sem lista) e time público passa", async () => {
+  const t = await setup();
+  await ligaRestrito(t, ["convidada@empresa.com"]);
+  const cookie = cookieDe(await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "convidada@empresa.com" }), site: "time-a" }));
+  assert.equal((await gate(t, "/time-a/", cookie)).status, 200);
+
+  fs.writeFileSync(path.join(t.dir, "site-acesso.json"), "{ isto não é json");
+  assert.equal((await gate(t, "/time-a/", cookie)).status, 403);                             // lista ilegível: nega tudo
+  const membro = cookieDe(await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "ana.silva@empresa.com" }), site: "time-a" }));
+  assert.equal(membro, "");                                                                    // nem a entrada abre
+  fs.rmSync(path.join(t.dir, "site-acesso.json"));
+  assert.equal((await gate(t, "/time-a/", cookie)).status, 403);                             // marcador sem lista: nega
+  // time sem marcador: o gate não restringe
+  assert.equal((await gate(t, "/time-b/", "")).status, 200);
+  t.close();
+});
+
+test("site restrito: sair apaga o cookie; o segredo é persistido em modo 600 e invalida tudo se apagado", async () => {
+  const t = await setup();
+  await ligaRestrito(t, ["convidada@empresa.com"]);
+  const cookie = cookieDe(await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "convidada@empresa.com" }), site: "time-a" }));
+  const sair = await t.call("POST", "/site/sair", { site: "time-a" });
+  assert.match(sair.setCookie, /sp_s_time-a=;.*Max-Age=0/);
+  const segredo = path.join(t.dir, "site-segredo");
+  assert.equal(fs.statSync(segredo).mode & 0o777, 0o600);
+  assert.ok(!fs.readFileSync(segredo, "utf8").includes(cookie.split("=")[1]));
+  t.close();
+});
+
+test("site restrito: no boot, marcador de time que não existe mais é removido (a lista guardada segue)", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sp-rec-"));
+  fs.mkdirSync(path.join(dir, "srv", "vivo"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "srv", "vivo", ".time.json"), "{}");
+  fs.mkdirSync(path.join(dir, "restritos"));
+  fs.writeFileSync(path.join(dir, "restritos", "vivo"), "");
+  fs.writeFileSync(path.join(dir, "restritos", "apagado"), "");
+  fs.writeFileSync(path.join(dir, "site-acesso.json"), JSON.stringify({ apagado: { emails: ["a@x.com"] } }));
+  const app = createApp({
+    tenant: TENANT, clientId: CLIENT, redirectUri: "https://x/", jwksLoader: async () => jwks, fbBase: "http://127.0.0.1:1/x",
+    svc: () => ({ user: "u", pass: "p" }), pedidosFile: path.join(dir, "p.json"), srvDir: path.join(dir, "srv"), nomesFile: path.join(dir, "n.json"),
+    auditFile: path.join(dir, "a.log"), siteAcessoFile: path.join(dir, "site-acesso.json"), restritosDir: path.join(dir, "restritos"),
+    siteSegredoFile: path.join(dir, "seg"), now: () => Date.now(),
+  });
+  assert.ok(fs.existsSync(path.join(dir, "restritos", "vivo")));
+  assert.ok(!fs.existsSync(path.join(dir, "restritos", "apagado")));
+  assert.ok(fs.readFileSync(path.join(dir, "site-acesso.json"), "utf8").includes("a@x.com"));
+  app.close();
+});
+

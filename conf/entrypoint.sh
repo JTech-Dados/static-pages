@@ -51,6 +51,7 @@ log "Base URL do File Browser: $BASEURL"
 # O resto de /seed (ex.: robots.txt) só entra se ainda não existir em /srv.
 for f in /seed/* /seed/.[!.]*; do
     [ -e "$f" ] || continue
+    case "$(basename "$f")" in entrar.html) continue ;; esac
     case "$(basename "$f")" in index.html|404.html|favicon.svg) [ "${HOME_FROM_SRV:-false}" = "true" ] || continue ;; esac
     # loop explícito: o "cp -n" do busybox não é confiável aqui
     [ -e "/srv/$(basename "$f")" ] || cp -r "$f" /srv/
@@ -87,6 +88,14 @@ else
     log "ATENÇÃO: SITE_SANDBOX=false: site estático NÃO isolado do /admin."
     : > "$SNIPPET"
 fi
+# Times restritos: o mesmo isolamento, mais proibir o embutir em iframe
+if [ "${SITE_SANDBOX:-true}" = "true" ]; then
+    echo 'add_header Content-Security-Policy "sandbox allow-scripts allow-forms allow-popups allow-downloads; frame-ancestors '"'none'"'" always;' > /etc/nginx/snippets/site-sandbox-restrito.conf
+else
+    echo 'add_header Content-Security-Policy "frame-ancestors '"'none'"'" always;' > /etc/nginx/snippets/site-sandbox-restrito.conf
+fi
+# marcadores dos times restritos (criados e removidos pelo sp-auth; o NGINX só faz stat)
+mkdir -p /database/restritos && chown nginx:nginx /database/restritos && chmod 755 /database/restritos
 
 
 # ------------------------------------------------------------

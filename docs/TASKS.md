@@ -13,7 +13,7 @@
 | 🟡 | Publicar imagem no GHCR pelo CI | VPS faz `docker compose pull` (sem build); tag por commit e `latest` estável |
 | 🟡 | Remover a pasta `_backup` criada no setup inicial | conteúdo conferido e apagado, ou movido para `./backups` |
 | 🔵 | Admin em subdomínio próprio | `/admin` só em `admin.<domínio>`; CSP sandbox do site pode ser revisto (decisão na MEMORY) |
-| 🔵 | **Entra ID por site** (ideia) | toggle por site; marcado, só abre com login Microsoft e e-mail numa lista guardada fora do site. Custo avaliado: infra ≈ zero, trabalho médio. Spec rascunho em `specs/2026-10-22-entra-por-site-ADIADA.md`; só retomar com um site real que precise de restrição |
+| 🔵 | Acesso restrito, modo A (assets e `fetch` com cookie) | decidir após testar a matriz de navegadores; hoje a v1 só protege a navegação e o conteúdo restrito precisa ser autocontido |
 | 🔵 | Tema escuro | botão de tema no topo do painel e da home, escolha guardada no navegador |
 | 🔵 | Validar o login Microsoft com um tenant real no Redirect URI padrão | `…/admin/entra/retorno` cadastrado no app Entra e login completo testado (a suíte usa só um Entra de teste) |
 | 🔵 | Filtrar robôs no contador de visitas | User-Agents de bots conhecidos não contam |
@@ -22,6 +22,7 @@
 
 | Data | Entrega | Commit |
 |---|---|---|
+| 2026-10-23 | Tokens de API (tela, troca por sessão, script `publicar.py`), acesso restrito por time com login Microsoft (v1), "ver site ↗" na lista de arquivos, login com caminho de volta para a home | (este commit) |
 | 2026-10-22 | Login Microsoft (Entra ID) no painel com pedido de acesso e aprovação; aba Usuários (papel e time); cota por time que bloqueia upload (inclusive o tus da interface); espaço do time no menu; nomes curtos; guia "Como publicar" (`/_ajuda/`); histórico de acessos na Atividade; `SP_BASE` (prefixo público); painel conferido em 360 px | — |
 | 2026-10-21 | Lixeira, backup, atividade, visitas, modelo de time, testes E2E + CI | `b3849a6`, `7e2e6d8` |
 | 2026-10-21 | Home por times; colunas Time/Alterado por | `72eb8ca` |

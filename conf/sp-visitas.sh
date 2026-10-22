@@ -22,9 +22,14 @@ agora="$(date -u +%s)"
 corte="$(date -u -d "@$((agora - DIAS * 86400))" +%Y-%m-%dT%H:%M:%S)"
 corte_log="$(date -u -d "@$((agora - RETER * 86400))" +%Y-%m-%dT%H:%M:%S)"
 
-awk -F '\t' -v corte="$corte" -v quando="$(date -u +%Y-%m-%dT%H:%M:%SZ)" -v dias="$DIAS" '
+restritos="$(ls -1 /database/restritos 2>/dev/null | tr '\n' ' ')"
+
+awk -F '\t' -v restritos="$restritos" -v corte="$corte" -v quando="$(date -u +%Y-%m-%dT%H:%M:%SZ)" -v dias="$DIAS" '
+    BEGIN { nr = split(restritos, lista, " "); for (i = 1; i <= nr; i++) if (lista[i] != "") restrito[lista[i]] = 1 }
     $1 >= corte {
         uri = $2
+        split(uri, seg, "/")
+        if (seg[2] in restrito) next   # time restrito: a visita não aparece em /_visitas.json
         sub(/[iI][nN][dD][eE][xX]\.[hH][tT][mM][lL]?$/, "", uri)
         n[uri]++
     }

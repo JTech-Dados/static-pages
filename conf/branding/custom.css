@@ -154,6 +154,15 @@ nav .credits a {
   background: var(--canvas-soft);
 }
 
+/* "ver site" ao lado do nome (conf/times/inject.js): abre a página publicada sem sair do painel */
+#listing .item .name .sp-ver {
+  margin-left: 10px; padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 500;
+  color: var(--link, #0070f3); background: var(--canvas-soft-2); box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  text-decoration: none; white-space: nowrap;
+}
+#listing .item .name .sp-ver:hover { background: var(--canvas); }
+#listing .item .name .sp-ver:focus-visible { outline: 2px solid var(--link, #0070f3); outline-offset: 1px; }
+
 /* ---------- Colunas extras (Time, Alterado por) — ver conf/times/inject.js ---------- */
 #listing.list.sp-cols .item .name     { width: 40%; }
 #listing.list.sp-cols .item .size     { width: 15%; }

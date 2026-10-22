@@ -28,7 +28,7 @@ Times internos produzem páginas HTML (dashboards exportados, relatórios, prot�
 
 ## Fora do escopo (hoje)
 
-- **Controle de quem VÊ** as páginas: o site é público para quem tem a URL (o guia `/_ajuda/` avisa). Login de leitura por site/time (Entra ID) está no TASKS, com o desenho em `specs/2026-10-22-entra-por-site-ADIADA.md`; no painel `/admin` o login Microsoft existe.
+- **Controle de quem VÊ** as páginas: o site é público para quem tem a URL (o guia `/_ajuda/` avisa). O time pode restringir as suas páginas a e-mails autorizados com login Microsoft (acesso restrito v1, `specs/2026-10-23-entra-por-site.md`); no painel `/admin` o login Microsoft também existe.
 - Build de sites (SSG, npm, frameworks): só servimos arquivos prontos.
 - Edição colaborativa em tempo real e versionamento de arquivo (além da lixeira).
 - HTTPS dentro do container: é responsabilidade do proxy da VPS.

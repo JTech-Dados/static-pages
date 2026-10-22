@@ -4,6 +4,9 @@
 //
 //   1. Item "Acessos" no menu lateral (só admins), com o número de pedidos
 //      de acesso pendentes (login Microsoft)
+//   1b. Item "Tokens de API" no menu (contas de e-mail, com o login Microsoft ligado)
+//   1c. Item "Acesso restrito" no menu (admin e editores de um time, com o login Microsoft ligado)
+//   8. "ver site ↗" ao lado do nome das pastas que são página e do index.html (abre a página publicada)
 //   0. Na barra superior: quem está logado, o time e o papel (Admin/Editor),
 //      e, para o admin, um aviso amarelo com os pedidos pendentes
 //   2. Colunas na listagem de arquivos:
@@ -76,9 +79,63 @@
     paintPending();
   }
 
+  // ---------- 1b. menu "Tokens de API": contas de e-mail, com o login Microsoft ligado ----------
+  let entraCfg = null;
+  function addApiMenuItem(s) {
+    const nav = document.querySelector("nav");
+    if (!nav || nav.querySelector("[data-sp-api]") || !me || !String(me.email || "").includes("@")) return;
+    if (entraCfg === null) {
+      entraCfg = false;   // evita consultas repetidas enquanto responde
+      fetch(BASE + "/admin/entra/config", { cache: "no-store" }).then((r) => r.json()).then((c) => { entraCfg = Boolean(c.habilitado); schedule(); }).catch(() => {});
+      return;
+    }
+    if (!entraCfg) return;
+    const settings = Array.from(nav.querySelectorAll(".action")).find((b) =>
+      /settings/.test((b.querySelector("i") || {}).textContent || ""));
+    if (!settings) return;
+    const link = document.createElement("a");
+    link.className = "action";
+    link.href = BASE + "/admin/times/api.html";
+    link.dataset.spApi = "";
+    link.title = "Tokens de API";
+    link.setAttribute("aria-label", "Tokens de API");
+    const icon = document.createElement("i");
+    icon.className = "material-icons";
+    icon.textContent = "vpn_key";
+    const label = document.createElement("span");
+    label.textContent = "Tokens de API";
+    link.append(icon, label);
+    settings.parentNode.insertBefore(link, settings);
+  }
+
+  // ---------- 1c. menu "Acesso restrito": admin e editores de um time, com o login Microsoft ligado ----------
+  function addRestritoMenuItem(s) {
+    const nav = document.querySelector("nav");
+    if (!nav || nav.querySelector("[data-sp-restrito]") || !me || !entraCfg) return;
+    const perm = (s.user && s.user.perm) || {};
+    if (!(s.admin || ((perm.create || perm.modify) && meTeam))) return;
+    const settings = Array.from(nav.querySelectorAll(".action")).find((b) =>
+      /settings/.test((b.querySelector("i") || {}).textContent || ""));
+    if (!settings) return;
+    const link = document.createElement("a");
+    link.className = "action";
+    link.href = BASE + "/admin/times/restrito.html";
+    link.dataset.spRestrito = "";
+    link.title = "Acesso restrito";
+    link.setAttribute("aria-label", "Acesso restrito");
+    const icon = document.createElement("i");
+    icon.className = "material-icons";
+    icon.textContent = "lock";
+    const label = document.createElement("span");
+    label.textContent = "Acesso restrito";
+    link.append(icon, label);
+    settings.parentNode.insertBefore(link, settings);
+  }
+
   // ---------- 0. barra superior: quem sou, time, papel, pedidos pendentes ----------
   let me = null;            // usuário logado (GET entra/me): nome, papel, time
   let meTeam = null;        // nome do time do membro
+  let meSlug = null;        // pasta do time do membro (para montar o endereço público)
   let entraOn = null;       // login Microsoft ligado? (lido uma vez)
   let pending = 0;
   let pendingAt = 0;
@@ -94,7 +151,7 @@
     if (!meBusy) {
       meBusy = fetch(BASE + "/admin/entra/me", { headers: { "X-Auth": s.token }, cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
-        .then((d) => { if (d) { me = { username: d.nome || d.usuario, email: d.usuario }; meTeam = d.timeNome || d.time || ""; } })
+        .then((d) => { if (d) { me = { username: d.nome || d.usuario, email: d.usuario }; meTeam = d.timeNome || d.time || ""; meSlug = d.time || ""; } })
         .catch(() => { /* sem nome na barra */ })
         .finally(() => { meBusy = null; });
     }
@@ -252,6 +309,59 @@
     }
   }
 
+  // ---------- 8. "ver site" ao lado do nome: pastas que são página e o index.html ----------
+  // Evita sair do painel para abrir a página: o link vai direto para o endereço público. Quem decide se uma
+  // pasta é página é a lista pública /_pastas/ (tem index.html?); time restrito responde 401 e também ganha o link.
+  const INDEX_NAMES = new Set(["index.html", "index.htm", "Index.html", "Index.htm", "INDEX.html", "INDEX.HTML", "INDEX.HTM"]);
+  const pageCache = new Map();   // "a/b" -> Promise<boolean>
+  function temPagina(parts) {
+    const key = parts.join("/");
+    if (!pageCache.has(key)) {
+      pageCache.set(key, fetch(`${BASE}/_pastas/${parts.map(encodeURIComponent).join("/")}/`, { cache: "no-cache" })
+        .then(async (r) => {
+          if (r.status === 401) return true;   // time restrito
+          if (!r.ok) return false;
+          return (await r.json()).some((e) => e.type === "file" && INDEX_NAMES.has(e.name));
+        }).catch(() => false));
+      setTimeout(() => pageCache.delete(key), 30000);   // o conteúdo muda pelo painel
+    }
+    return pageCache.get(key);
+  }
+
+  let linksBusy = false;
+  async function addSiteLinks(s, meSlug) {
+    const listing = document.querySelector("#listing.list");
+    const path = currentPath();
+    if (!listing || path === null || linksBusy) return;
+    if (!s.admin && !meSlug) return;
+    // endereço público da pasta aberta: o time (membro) + o caminho relativo ao escopo
+    const here = [...(s.admin ? [] : [meSlug]), ...(path ? path.split("/") : [])];
+    linksBusy = true;
+    try {
+      const rows = Array.from(listing.querySelectorAll(".item:not(.header)")).filter((r) => !r.querySelector(".sp-ver"));
+      await Promise.all(rows.map(async (row) => {
+        const name = row.getAttribute("aria-label") || "";
+        const nameEl = row.querySelector("p.name");
+        if (!name || !nameEl || /^[_.]/.test(name)) return;
+        let parts = null;
+        if (row.dataset.dir === "true") { const p = [...here, name]; if (await temPagina(p)) parts = p; }
+        else if (INDEX_NAMES.has(name) && here.length) parts = here;   // o index.html é a página da pasta
+        if (!parts || nameEl.querySelector(".sp-ver") || !row.isConnected) return;
+        const a = document.createElement("a");
+        a.className = "sp-ver";
+        a.href = `${location.origin}${BASE}/${parts.map(encodeURIComponent).join("/")}/`;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.title = "Abrir a página publicada";
+        a.textContent = "ver site ↗";
+        for (const ev of ["click", "dblclick", "mousedown", "keydown"]) a.addEventListener(ev, (e) => e.stopPropagation());   // não seleciona nem abre a linha
+        nameEl.append(a);
+      }));
+    } finally {
+      linksBusy = false;
+    }
+  }
+
   // ---------- 3. login Microsoft (só na tela de login) ----------
   function loadEntraLogin() {
     if (window.__spEntraLogin || document.querySelector("script[data-sp-entra]")) return;
@@ -276,7 +386,10 @@
     guia.target = "_blank";
     guia.rel = "noopener";
     guia.textContent = "Como publicar";
-    foot.append(guia);
+    const voltar = document.createElement("a");
+    voltar.href = BASE + "/";
+    voltar.textContent = "← Página inicial";
+    foot.append(voltar, document.createTextNode(" · "), guia);
     form.append(foot);
   }
 
@@ -335,7 +448,7 @@
       const s = session();
       if (!s) return;
       addMenuItem(s);
-      loadMe(s).then(() => addWhoChip(s));
+      loadMe(s).then(() => { addWhoChip(s); addApiMenuItem(s); addRestritoMenuItem(s); addSiteLinks(s, meSlug); });
       refreshPending(s);
       annotate(s);
     }, 120);

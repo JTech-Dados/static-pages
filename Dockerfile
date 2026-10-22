@@ -35,7 +35,7 @@ RUN mkdir -p /srv /seed /database /etc/nginx/snippets \
  && chown -R nginx:nginx /srv /database
 
 COPY content/                       /seed/
-COPY content/index.html content/404.html content/favicon.svg /usr/share/static-pages/home/
+COPY content/index.html content/404.html content/favicon.svg content/entrar.html /usr/share/static-pages/home/
 COPY conf/nginx/default.conf   /etc/nginx/conf.d/default.conf
 COPY conf/nginx/snippets/      /etc/nginx/snippets/
 COPY conf/branding/            /branding/

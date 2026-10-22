@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conteúdo restrito · Static Pages</title>
+  <!-- Resposta 401 de um time restrito (NGINX, @site_entrar). __SP_BASE__ e __TIME__ são trocados pelo NGINX;
+       o time é um slug já validado pelo sp-auth. Nada da URL é refletido no HTML. -->
+  <link rel="icon" href="__SP_BASE__/favicon.svg" type="image/svg+xml">
+  <style>
+    /* Tokens: DESIGN.md (mesmos do painel) */
+    :root {
+      --bg: #fafafa; --surface: #ffffff; --surface-2: #f5f5f5; --field: #ffffff;
+      --line: #ebebeb; --line-2: #d4d4d4;
+      --ink: #171717; --ink-2: #4d4d4d; --muted: #666666; --faint: #a1a1a1;
+      --brand: #171717; --brand-hover: #000000;
+      --accent: #0070f3; --accent-strong: #171717; --accent-strong-hover: #000000; --accent-soft: #f5f5f5;
+      --danger: #c50000; --danger-soft: #f7d4d6; --ok-soft: #e7f6ec;
+      --focus: 0 0 0 2px #ffffff, 0 0 0 4px #0070f3;
+      --s1: #1a9d5c; --s2: #0070f3; --s3: #ab570a; --s4: #7928ca; --s5: #ee0000; --s6: #0e8a8a; --s7: #c044d8; --s8: #a8231b; --sx: #888888;
+      --f-disp: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --f-body: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --f-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --r-sm: 6px; --r-core: 8px; --r-shell: 12px; --r-pill: 999px;
+      --shadow: 0 1px 1px #00000005, 0 2px 2px #0000000a; --hi: none;
+      --ease: ease-out; --h-control: 36px;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; font: 400 15px/1.55 var(--f-body); color: var(--ink); background: var(--bg); }
+    header { display: flex; align-items: center; gap: 12px; height: 64px; padding: 0 24px; border-bottom: 1px solid var(--line); background: var(--surface); }
+    header b { font-weight: 600; letter-spacing: -0.3px; }
+    main { flex: 1; display: grid; place-items: center; padding: 24px; }
+    .card { width: min(30rem, 100%); padding: 32px; background: var(--surface); border-radius: var(--r-core); box-shadow: var(--shadow), var(--hi); }
+    .lock { display: inline-grid; place-items: center; width: 44px; height: 44px; margin-bottom: 16px; border-radius: var(--r-pill); background: var(--accent-soft); }
+    h1 { margin: 0 0 8px; font: 500 24px/1.2 var(--f-disp); letter-spacing: -0.02em; }
+    p { margin: 0 0 16px; color: var(--ink-2); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: var(--h-control); border: 0; border-radius: var(--r-sm); cursor: pointer;
+      font: 500 14px/1 var(--f-body); color: #fff; background: var(--accent-strong); transition: background-color 200ms var(--ease), transform 200ms var(--ease); }
+    .btn:hover { background: var(--accent-strong-hover); }
+    .btn:active { transform: scale(.98); }
+    .btn:disabled { opacity: .6; cursor: default; }
+    :focus-visible { outline: none; box-shadow: var(--focus); border-radius: 6px; }
+    .msg { margin: 16px 0 0; padding: 12px 14px; border-radius: var(--r-sm); font-size: 14px; background: var(--surface-2); }
+    .msg.erro { color: var(--danger); background: var(--danger-soft); }
+    .volta { display: inline-block; margin-top: 20px; color: var(--brand); font-size: 14px; }
+    @media (max-width: 480px) { header { padding: 0 16px; } .card { padding: 24px; } }
+  </style>
+</head>
+<body>
+  <header><b>Static Pages</b></header>
+  <main>
+    <section class="card" aria-labelledby="titulo">
+      <span class="lock" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      </span>
+      <h1 id="titulo">Conteúdo restrito</h1>
+      <p id="descricao">As páginas do time <b id="time-nome"></b> são restritas. Entre com a sua conta Microsoft para continuar.</p>
+      <button class="btn" id="entrar" type="button" disabled>Entrar com Microsoft</button>
+      <p class="msg" id="msg" role="status" hidden></p>
+      <a class="volta" href="__SP_BASE__/">← Página inicial</a>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+      const BASE = "__SP_BASE__";
+      const TIME = "__TIME__";
+      const ENTRA = BASE + "/admin/entra";
+      const $ = (s) => document.getElementById(s);
+      const say = (text, erro) => { const m = $("msg"); m.textContent = text; m.hidden = !text; m.classList.toggle("erro", Boolean(erro)); };
+      let cfg = null, app = null;
+
+      // nome do time (público): só textContent
+      fetch(BASE + "/" + encodeURIComponent(TIME) + "/.time.json", { cache: "no-cache" }).then((r) => r.json())
+        .then((t) => { $("time-nome").textContent = (t && t.nome) || TIME; }).catch(() => { $("time-nome").textContent = TIME; });
+
+      const loadScript = (src) => new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => fail(new Error("script")); document.head.append(s); });
+
+      async function idToken() {
+        if (!window.msal) await loadScript(BASE + "/admin/times/msal-browser.min.js");
+        if (!app) {
+          app = new window.msal.PublicClientApplication({
+            auth: { clientId: cfg.clientId, authority: cfg.authority, redirectUri: cfg.redirectUri, navigateToLoginRequestUrl: false },
+            cache: { cacheLocation: "sessionStorage" },
+          });
+          await app.initialize();
+        }
+        const res = await app.loginPopup({ scopes: ["openid", "profile", "email"], prompt: "select_account" });
+        return { idToken: res.idToken, email: (res.account && res.account.username) || "" };
+      }
+
+      $("entrar").addEventListener("click", async () => {
+        const b = $("entrar");
+        b.disabled = true;
+        say("Abrindo o login da Microsoft…");
+        try {
+          const { idToken: tok, email } = await idToken();
+          say("Conferindo o seu acesso…");
+          const r = await fetch(ENTRA + "/site/entrar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: tok, site: TIME }) });
+          if (r.status === 200) { say("Entrando…"); location.reload(); return; }
+          if (r.status === 403) say(`Sua conta${email ? " (" + email + ")" : ""} não tem acesso a esta página. Peça ao time responsável.`, true);
+          else if (r.status === 429) say("Muitas tentativas. Aguarde um minuto.", true);
+          else say("Não foi possível validar o login. Tente de novo.", true);
+        } catch (e) {
+          const t = String((e && e.message) || e);
+          say(/popup|blocked|interaction_in_progress/i.test(t) ? "O navegador bloqueou a janela da Microsoft. Libere pop-ups para este site e tente de novo."
+            : /cancel/i.test(t) ? "Login cancelado." : "Não foi possível entrar com a Microsoft.", true);
+        } finally { b.disabled = false; }
+      });
+
+      fetch(ENTRA + "/config", { cache: "no-store" }).then((r) => r.json()).then((c) => {
+        cfg = c;
+        if (!c.habilitado) { say("O login Microsoft está desligado neste ambiente. Fale com quem administra o Pages.", true); return; }
+        $("entrar").disabled = false;
+      }).catch(() => say("Não foi possível carregar o login. Tente de novo.", true));
+    })();
+  </script>
+</body>
+</html>

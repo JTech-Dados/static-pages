@@ -12,6 +12,7 @@ Tudo que os testes criam usa o prefixo "zz-" / "zz." e é removido no final,
 inclusive da lixeira — dá para rodar no servidor real sem tocar nos dados.
 """
 import os
+import time
 import shutil
 import subprocess
 import uuid
@@ -46,7 +47,12 @@ class Api:
     """Cliente mínimo da API do File Browser."""
 
     def __init__(self, user, password):
-        r = requests.post(f"{BASE}/admin/api/login", json={"username": user, "password": password, "recaptcha": ""}, timeout=10)
+        # o NGINX limita o login a 5/min por IP (rajada de 10): se a suíte estourar, espera a janela e tenta de novo
+        for tentativa in range(6):
+            r = requests.post(f"{BASE}/admin/api/login", json={"username": user, "password": password, "recaptcha": ""}, timeout=10)
+            if r.status_code != 429:
+                break
+            time.sleep(13)
         r.raise_for_status()
         self.token = r.text
         self.h = {"X-Auth": self.token}
@@ -66,10 +72,10 @@ class Api:
     def users(self):
         return self.req("GET", "/users").json()
 
-    def add_user(self, username, password, scope, leitor=False):
+    def add_user(self, username, password, scope, leitor=False, admin=False):
         data = {"username": username, "password": password, "scope": scope, "locale": "pt-br", "lockPassword": False,
-                "perm": {"admin": False, "execute": False, "create": not leitor, "rename": not leitor, "modify": not leitor,
-                         "delete": not leitor, "share": False, "download": True},
+                "perm": {"admin": admin, "execute": admin, "create": not leitor, "rename": not leitor, "modify": not leitor,
+                         "delete": not leitor, "share": admin, "download": True},
                 "commands": [], "rules": [], "hideDotfiles": True, "viewMode": "list"}
         return self.req("POST", "/users", json={"what": "user", "which": [], "data": data})
 
@@ -81,6 +87,11 @@ class Api:
         root = self.req("GET", "/resources/").json()
         for item in root.get("items", []):
             if item["isDir"] and item["name"].startswith(PREFIX):
+                # time restrito: desliga antes de apagar (senão fica o marcador de um time que não existe mais)
+                try:
+                    requests.put(f"{BASE}/admin/entra/site/acesso", json={"time": item["name"], "ativo": False, "emails": []}, headers=self.h, timeout=5)
+                except requests.RequestException:
+                    pass
                 self.delete(f"/{item['name']}/")
         reg = self.req("GET", "/raw/_lixeira/.registro")
         if reg.ok:
@@ -132,10 +143,19 @@ def page(browser):
 
 
 def login(pg, user, password):
-    pg.goto(f"{BASE}/admin/login")
-    pg.fill("input[type=text]", user)
-    pg.fill("input[type=password]", password)
-    pg.keyboard.press("Enter")
+    # o NGINX limita o login a 5/min por IP (rajada de 10): se outros testes gastaram a rajada, espera a janela
+    # e tenta de novo (429 na resposta do login) em vez de falhar por tempo
+    for tentativa in range(5):
+        pg.goto(f"{BASE}/admin/login")
+        pg.fill("input[type=text]", user)
+        pg.fill("input[type=password]", password)
+        with pg.expect_response(lambda r: r.url.endswith("/admin/api/login") and r.request.method == "POST", timeout=30000) as info:
+            pg.keyboard.press("Enter")
+        if info.value.status != 429:
+            break
+        time.sleep(13)
+    # o 429 esperado não é erro do painel: não deixa o teste reclamar dele
+    pg.errors[:] = [e for e in pg.errors if "429" not in e]
     pg.wait_for_url("**/admin/files/**")
     pg.wait_for_load_state("networkidle")
 
@@ -150,7 +170,10 @@ def login_token(pg, token):
     pg.evaluate("t => localStorage.setItem('jwt', t)", token)
     pg.goto(f"{BASE}/admin/files/")
     pg.wait_for_url("**/admin/files/**")
-    pg.wait_for_load_state("networkidle")
+    try:
+        pg.wait_for_load_state("networkidle", timeout=8000)
+    except Exception:
+        pass  # painel com requisições longas (ex.: _pastas 401 de site restrito) — a tela já carregou
 
 
 def in_container(*cmd):

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Static Pages</title>
+  <link rel="icon" href="../static/img/icons/favicon-32x32.png" type="image/png">
+  <link rel="stylesheet" href="painel.css">
+</head>
+<body>
+  <header>
+    <a class="logo" data-go="files/" aria-label="Arquivos"><img src="../static/img/logo.svg" alt=""></a>
+    <span class="spacer"></span>
+  </header>
+
+  <nav class="side" aria-label="Menu do painel">
+    <a data-go="files/" href="#">
+      <i class="material-icons" aria-hidden="true">folder</i>
+      Arquivos
+    </a>
+    <hr>
+    <a data-go="times" href="#" id="nav-acessos" hidden>
+      <i class="material-icons" aria-hidden="true">groups</i>
+      Acessos
+    </a>
+    <a data-go="times/restrito.html" href="#" aria-current="page">
+      <i class="material-icons" aria-hidden="true">lock</i>
+      Acesso restrito
+    </a>
+    <a data-go="settings/profile" href="#">
+      <i class="material-icons" aria-hidden="true">settings_applications</i>
+      Configurações
+    </a>
+    <button type="button" id="logout">
+      <i class="material-icons" aria-hidden="true">exit_to_app</i>
+      Sair
+    </button>
+  </nav>
+
+  <main id="app">
+    <section class="intro page-head">
+      <div>
+        <h2>Acesso restrito</h2>
+        <p>Restrinja as páginas de um time a quem tem conta autorizada. Quem não está autorizado vê uma tela de entrada e não lê o conteúdo.</p>
+      </div>
+    </section>
+
+    <div id="aviso" class="notice" hidden></div>
+
+    <section id="painel" hidden>
+      <label id="linha-time" hidden>Time
+        <select class="full" id="time" aria-label="Time"></select>
+      </label>
+
+      <div class="card-restrito">
+        <label class="liga">
+          <input type="checkbox" id="ativo">
+          <span><b>Restringir o acesso</b> às páginas do time <b id="time-nome"></b></span>
+        </label>
+
+        <label for="emails" class="rotulo">E-mails autorizados <span class="hint-inline">um por linha; além deles, entram sempre os membros do time e os admins</span></label>
+        <textarea id="emails" rows="8" spellcheck="false" placeholder="nome.sobrenome@empresa.com"></textarea>
+        <p class="hint" id="dominios" hidden></p>
+
+        <div class="dlg-actions" style="justify-content:flex-start">
+          <button class="btn" type="button" id="salvar">Salvar</button>
+        </div>
+      </div>
+
+      <div class="aviso-box">
+        <b>Antes de ligar</b>
+        <ul>
+          <li>Dar acesso a um e-mail equivale a <b>publicar para aquela pessoa</b>: ela pode ler, copiar e repassar o conteúdo.</li>
+          <li>O conteúdo restrito precisa ser <b>autocontido</b>: um HTML que traz imagens, estilos e dados dentro do próprio arquivo. Imagens, scripts, estilos e <code>fetch</code> de arquivos separados não carregam nas páginas restritas.</li>
+          <li>Quem edita o time e os admins sempre leem os arquivos pelo painel. O nome da página e do time continuam visíveis na home (com um cadeado).</li>
+          <li>Remover um e-mail da lista vale na hora; a sessão de quem entra dura 8 horas.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // Acesso restrito por time (admin e editores do próprio time). Usa a sessão do painel e as rotas
+    // <prefixo>/admin/entra/site/acesso (sp-auth). Todo texto entra por textContent.
+    const BASE = location.pathname.replace(/\/admin(\/.*)?$/, "");
+    const ENTRA = BASE + "/admin/entra";
+    const $ = (s) => document.querySelector(s);
+    const token = localStorage.getItem("jwt");
+    let eu = null;
+
+    document.querySelectorAll("[data-go]").forEach((a) => { a.href = BASE + "/admin/" + a.dataset.go; });
+
+    (async function loadPanelIcons() {
+      try {
+        const html = await (await fetch(BASE + "/admin/", { cache: "force-cache" })).text();
+        const href = (html.match(/href="([^"]+\/assets\/index-[^"]+\.css)"/) || [])[1];
+        if (!href) return;
+        const css = await (await fetch(href, { cache: "force-cache" })).text();
+        const face = (css.match(/@font-face\{[^}]*Material Icons[^}]*\}/) || [])[0];
+        if (!face) return;
+        const base = href.slice(0, href.lastIndexOf("/") + 1);
+        const style = document.createElement("style");
+        style.textContent = face.replace(/url\(\.\//g, `url(${base}`);
+        document.head.append(style);
+      } catch { /* sem ícones, o menu continua com os textos */ }
+    })();
+
+    function toast(msg, isError = false) {
+      const t = $("#toast");
+      t.textContent = msg;
+      t.className = "show" + (isError ? " error" : "");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => (t.className = ""), 3600);
+    }
+    const req = async (path, opts = {}) => {
+      const r = await fetch(ENTRA + path, { ...opts, headers: { "X-Auth": token, "Content-Type": "application/json", ...(opts.headers || {}) } });
+      let data = {};
+      try { data = await r.json(); } catch { /* sem corpo */ }
+      return { status: r.status, data };
+    };
+    const aviso = (texto) => { $("#painel").hidden = true; const a = $("#aviso"); a.textContent = texto; a.hidden = false; };
+    const sessao = () => { try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).user || {}; } catch { return {}; } };
+
+    let atual = "";
+    async function carregar(time) {
+      atual = time;
+      const nome = $("#time").selectedOptions[0];
+      $("#time-nome").textContent = nome ? nome.textContent : time;
+      const r = await req("/site/acesso?time=" + encodeURIComponent(time));
+      if (r.status !== 200) return toast("Não foi possível carregar o acesso deste time.", true);
+      $("#ativo").checked = Boolean(r.data.ativo);
+      $("#emails").value = (r.data.emails || []).join("\n");
+      const d = $("#dominios");
+      d.hidden = !(r.data.dominios && r.data.dominios.length);
+      if (!d.hidden) d.textContent = "Só e-mails destes domínios: " + r.data.dominios.join(", ") + ".";
+    }
+
+    $("#time").onchange = () => carregar($("#time").value);
+    $("#salvar").onclick = async () => {
+      const emails = $("#emails").value.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+      const r = await req("/site/acesso", { method: "PUT", body: JSON.stringify({ time: atual, ativo: $("#ativo").checked, emails }) });
+      if (r.status === 200) { toast($("#ativo").checked ? "Acesso restrito salvo." : "Restrição desligada: as páginas voltam a ser públicas."); carregar(atual); return; }
+      const e = r.data.erro;
+      toast(e === "email_invalido" ? `E-mail inválido: ${r.data.email}` : e === "dominio_nao_permitido" ? `Domínio não permitido: ${r.data.email}`
+        : e === "emails_demais" ? "Lista grande demais (máximo de 200 e-mails)." : e === "sem_permissao" ? "Você não pode alterar este time."
+        : "Não foi possível salvar.", true);
+    };
+    $("#logout").onclick = () => { localStorage.removeItem("jwt"); location.href = BASE + "/admin/login"; };
+
+    (async function init() {
+      if (!token) return aviso("Entre no painel para gerenciar o acesso restrito.");
+      let cfg = {};
+      try { cfg = await (await fetch(ENTRA + "/config", { cache: "no-store" })).json(); } catch { /* segue */ }
+      if (!cfg.habilitado) return aviso("O acesso restrito depende do login Microsoft, que está desligado neste ambiente.");
+      const m = await req("/me");
+      if (m.status !== 200) return aviso("Sua sessão expirou. Entre de novo no painel.");
+      eu = m.data;
+      const perm = sessao().perm || {};
+      if (eu.admin) $("#nav-acessos").hidden = false;
+      if (!eu.admin && !(eu.time && (perm.create || perm.modify))) return aviso("Só admins e editores de um time gerenciam o acesso restrito.");
+      const sel = $("#time");
+      if (eu.admin) {
+        // admin: escolhe o time (pastas da raiz com .time.json)
+        const raiz = await (await fetch(BASE + "/_pastas/", { cache: "no-cache" })).json();
+        const opcoes = [];
+        await Promise.all(raiz.filter((e) => e.type === "directory" && !/^[_.]/.test(e.name)).map(async (e) => {
+          try {
+            const t = await (await fetch(`${BASE}/${encodeURIComponent(e.name)}/.time.json`, { cache: "no-cache" })).json();
+            if (t && typeof t === "object") opcoes.push([e.name, t.nome || e.name]);
+          } catch { /* pasta sem time */ }
+        }));
+        opcoes.sort((a, b) => a[1].localeCompare(b[1], "pt-BR"));
+        if (!opcoes.length) return aviso("Ainda não há times.");
+        sel.replaceChildren(...opcoes.map(([v, n]) => new Option(n, v)));
+        const pedido = new URLSearchParams(location.search).get("time");
+        if (pedido && opcoes.some((o) => o[0] === pedido)) sel.value = pedido;
+        $("#linha-time").hidden = false;
+      } else {
+        sel.replaceChildren(new Option(eu.timeNome || eu.time, eu.time));
+      }
+      $("#painel").hidden = false;
+      carregar(sel.value);
+    })();
+  </script>
+</body>
+</html>

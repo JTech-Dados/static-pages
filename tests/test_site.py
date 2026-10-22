@@ -83,7 +83,7 @@ def test_auditoria_so_para_admin(admin, uid):
 def test_home_404_e_favicon_vem_da_imagem(admin):
     """A home não depende do /srv/index.html (que pode ser a cópia antiga do 1º deploy)."""
     home = requests.get(f"{BASE}/", timeout=10)
-    assert home.status_code == 200 and "Static Pages" in home.text
+    assert home.status_code == 200 and "Static Pages" in home.text and home.text.count("Como publicar") == 1   # um só link, no topo
     assert "organizadas por time" not in home.text
     assert requests.get(f"{BASE}/index.html", timeout=10).text == home.text
     assert requests.get(f"{BASE}/favicon.svg", timeout=10).status_code == 200

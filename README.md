@@ -66,6 +66,9 @@ O **static-pages** é esse lugar. Quem publica usa o navegador, quem consome rec
 | 👥 | **Acessos e times** | cada time é uma pasta; membros só enxergam e editam a pasta do seu time; aba Usuários muda papel e time |
 | 🪪 | **Login Microsoft (Entra ID)** | opcional: membros entram com a conta Microsoft; quem não tem acesso pede e o admin aprova |
 | 📦 | **Cota por time** | espaço do time na barra do menu; upload acima da cota é recusado (413, mensagem em português) |
+| 🔒 | **Páginas restritas** | opcional: o time restringe as páginas a e-mails autorizados (login Microsoft); falha fechado |
+| 🔑 | **Tokens de API** | token pessoal para automações publicarem HTML sem abrir o painel |
+| 🔗 | **"ver site ↗"** | na lista de arquivos do painel, abre a página publicada da pasta |
 | 📖 | **Guia "Como publicar"** | página `/_ajuda/` para quem publica (links relativos, sandbox, cota, visibilidade) |
 | ✍️ | **Autoria** | colunas "Time" e "Alterado por" na listagem do painel |
 | 🗑️ | **Lixeira** | nada apagado some de vez: restaura em 1 clique por 30 dias |
@@ -214,6 +217,14 @@ Opcional e desligado por padrão. Para ligar:
 3. Defina `ENTRA_TENANT_ID` e `ENTRA_CLIENT_ID` no `.env` e reinicie.
 
 Membros são usuários do File Browser com o **e-mail como nome de usuário**; quem entra com Microsoft sem cadastro vê "Solicitar acesso" e o admin aprova na aba **Pedidos** (escolhendo o time). O servidor valida o token (assinatura, emissor, audiência, tenant, validade, uso único). O `admin` local continua só com usuário e senha, como contingência. Detalhes em [ARCHITECTURE](docs/ARCHITECTURE.md). Observação: a suíte testa o fluxo com um Entra de teste; valide o login com o seu tenant real ao ligar.
+
+## 🔒 Páginas com acesso restrito
+
+Admin e editores de um time ligam, no painel (**Acesso restrito**), a restrição das páginas do time a e-mails autorizados (login Microsoft). Quem não está na lista vê uma tela de entrada e não lê o conteúdo; membros do time e admins entram sempre. A v1 protege a **navegação**: o conteúdo restrito precisa ser um HTML autocontido (assets e `fetch` de arquivos separados não carregam). Falha fechado: se o `sp-auth` cair, nada do time restrito é servido. Detalhes e limites em [ARCHITECTURE](docs/ARCHITECTURE.md) e `specs/2026-10-23-entra-por-site.md`.
+
+## 🔑 Tokens de API (automações)
+
+Quem tem conta de e-mail vê **Tokens de API** no menu do painel: cria um token pessoal (nome e validade de 30, 90 ou 365 dias; admin até 90), copia na hora e usa numa automação para publicar HTML no próprio time, sem abrir o painel. O script troca o token por uma sessão (`POST /admin/entra/api/sessao`) e chama a API do File Browser, com as regras de sempre: time, papel (o Leitor não publica), cota e autoria. Só o hash do token fica em `/database/api-tokens.json`; revogue na mesma tela. O guia `/_ajuda/` tem o passo a passo, o exemplo em `curl` e o `publicar.py`. Spec: `specs/2026-10-22-tokens-de-api.md`.
 
 ## 🌍 Deploy na VPS
 
