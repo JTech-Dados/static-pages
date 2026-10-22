@@ -20,6 +20,7 @@ Respondemos em até 5 dias úteis. A correção segue o fluxo normal (spec, test
 | Arquivos internos (`.env`, `.autoria`, lixeira, backups) | 404 no NGINX |
 | Isolamento entre times | escopo por usuário no File Browser |
 | Histórico de atividade | só admin (`auth_request` na própria API) |
+| Login Microsoft | ID token validado no servidor (assinatura, emissor, audiência, tenant, validade, uso único); admin local só por senha; senha de membro trocada a cada login; endpoints públicos com limite por IP |
 
 **Fora do modelo hoje:** controle de leitura do site (as páginas são públicas para quem tem a URL) e HTTPS dentro do container (responsabilidade do proxy da VPS).
 

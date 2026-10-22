@@ -12,15 +12,17 @@
 | 🟡 | Backup consistente do `filebrowser.db` | backup copia o banco sem risco de pegar escrita no meio (snapshot ou pausa curta do app) |
 | 🟡 | Publicar imagem no GHCR pelo CI | VPS faz `docker compose pull` (sem build); tag por commit e `latest` estável |
 | 🟡 | Remover a pasta `_backup` criada no setup inicial | conteúdo conferido e apagado, ou movido para `./backups` |
-| 🔵 | **Login de leitura por time** (oauth2-proxy + Entra ID) | páginas de um time só abrem para quem está no grupo do AD; home mostra só os times permitidos |
 | 🔵 | Admin em subdomínio próprio | `/admin` só em `admin.<domínio>`; CSP sandbox do site pode ser revisto (decisão na MEMORY) |
-| 🔵 | Cota que bloqueia upload | upload acima da cota é recusado com mensagem clara |
+| 🔵 | **Entra ID por site** (ideia) | toggle por site; marcado, só abre com login Microsoft e e-mail numa lista guardada fora do site. Custo avaliado: infra ≈ zero, trabalho médio. Spec rascunho em `specs/2026-10-22-entra-por-site-ADIADA.md`; só retomar com um site real que precise de restrição |
+| 🔵 | Tema escuro | botão de tema no topo do painel e da home, escolha guardada no navegador |
+| 🔵 | Validar o login Microsoft com um tenant real no Redirect URI padrão | `…/admin/entra/retorno` cadastrado no app Entra e login completo testado (a suíte usa só um Entra de teste) |
 | 🔵 | Filtrar robôs no contador de visitas | User-Agents de bots conhecidos não contam |
 
 ## Feito
 
 | Data | Entrega | Commit |
 |---|---|---|
+| 2026-10-22 | Login Microsoft (Entra ID) no painel com pedido de acesso e aprovação; aba Usuários (papel e time); cota por time que bloqueia upload (inclusive o tus da interface); espaço do time no menu; nomes curtos; guia "Como publicar" (`/_ajuda/`); histórico de acessos na Atividade; `SP_BASE` (prefixo público); painel conferido em 360 px | — |
 | 2026-10-21 | Lixeira, backup, atividade, visitas, modelo de time, testes E2E + CI | `b3849a6`, `7e2e6d8` |
 | 2026-10-21 | Home por times; colunas Time/Alterado por | `72eb8ca` |
 | 2026-10-21 | Tela de Times; cadastro público desligado | `b2e352d` |

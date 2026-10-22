@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Time</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="__SP_BASE__/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
@@ -52,7 +52,7 @@
   </style>
 </head>
 <body>
-  <header><a href="/">← Todas as páginas</a></header>
+  <header><a href="__SP_BASE__/">← Todas as páginas</a></header>
   <section class="hero">
     <p class="eyebrow">time</p>
     <h1 id="team-name">Página do time</h1>
@@ -61,13 +61,14 @@
 
   <script>
     (async function () {
-      const base = location.pathname.replace(/[^/]*$/, "");          // /<time>/
+      const PREFIX = "__SP_BASE__";                                   // prefixo público, ex.: /pages (vazio na raiz)
+      const base = location.pathname.slice(PREFIX.length).replace(/[^/]*$/, "");   // /<time>/ (sem o prefixo)
       const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
       const pretty = (s) => s.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
       const INDEX = new Set(["index.html", "index.htm", "Index.html", "Index.htm", "INDEX.html", "INDEX.HTML", "INDEX.HTM"]);
 
       try {
-        const cfg = await (await fetch(base + ".time.json", { cache: "no-cache" })).json();
+        const cfg = await (await fetch(PREFIX + base + ".time.json", { cache: "no-cache" })).json();
         if (cfg && typeof cfg.nome === "string" && cfg.nome.trim()) {
           document.getElementById("team-name").textContent = cfg.nome;
           document.title = cfg.nome;
@@ -76,10 +77,10 @@
 
       const box = document.getElementById("pages");
       try {
-        const dirs = (await (await fetch("/_pastas" + base, { cache: "no-cache" })).json())
+        const dirs = (await (await fetch(PREFIX + "/_pastas" + base, { cache: "no-cache" })).json())
           .filter((e) => e.type === "directory" && !/^[_.]/.test(e.name));
         const withIndex = (await Promise.all(dirs.map(async (d) => {
-          const items = await (await fetch(`/_pastas${base}${encodeURIComponent(d.name)}/`, { cache: "no-cache" })).json().catch(() => []);
+          const items = await (await fetch(`${PREFIX}/_pastas${base}${encodeURIComponent(d.name)}/`, { cache: "no-cache" })).json().catch(() => []);
           return items.some((i) => i.type === "file" && INDEX.has(i.name)) ? d : null;
         }))).filter(Boolean);
 
@@ -91,7 +92,7 @@
         }
         for (const d of withIndex.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))) {
           const a = el("a", "card");
-          a.href = base + encodeURIComponent(d.name) + "/";
+          a.href = PREFIX + base + encodeURIComponent(d.name) + "/";
           a.append(el("b", null, pretty(d.name)), el("span", null, "→"));
           box.append(a);
         }

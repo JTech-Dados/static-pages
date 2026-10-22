@@ -271,6 +271,56 @@ header .action:focus-visible,
 }
 #login .input { width: 100%; box-sizing: border-box; }
 
+/* ---------- Menu: barra de espaço, Ajuda e usuários (conf/times/inject.js) ---------- */
+/* barra de espaço (vue-simple-progress, com estilo inline): trilho visível e largura mínima,
+   senão 5 KB de 200 MB (0,003%) não aparece */
+nav .credits .vue-simple-progress { height: 6px !important; border-radius: 999px; overflow: hidden; background: var(--hairline) !important; }
+nav .credits .vue-simple-progress-bar { height: 6px !important; min-width: 6px; border-radius: 999px; background: var(--ink) !important; }
+
+/* rodapé do menu: sem versão do File Browser; "Ajuda" com cara de botão */
+nav p.credits > span:first-child { display: none; }
+nav p.credits a {
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; cursor: pointer;
+  color: var(--ink); font-family: var(--font-sans); font-size: 13px; font-weight: 500; text-decoration: none;
+  background: var(--canvas); box-shadow: var(--ring); border-radius: var(--r-sm);
+}
+nav p.credits a::before {
+  content: "?"; display: inline-grid; place-items: center; width: 16px; height: 16px;
+  color: #ffffff; background: var(--ink); border-radius: 50%; font-size: 11px; font-weight: 500;
+}
+nav p.credits a:hover { background: var(--canvas-soft-2); }
+
+/* a gestão de usuários fica em Acessos (aba Usuários); a tela nativa do File Browser sai do menu de configurações */
+a[href$="/settings/users"] { display: none !important; }
+
+/* ---------- Barra superior: quem está logado, time e papel ---------- */
+.sp-chip { display: flex; align-items: center; gap: 10px; margin-left: 16px; min-width: 0; color: var(--body); font-size: 13px; white-space: nowrap; }
+.sp-chip-user { max-width: 260px; overflow: hidden; text-overflow: ellipsis; color: var(--ink); font-weight: 500; }
+.sp-chip-team:not(:empty)::before { content: "·"; margin-right: 10px; }
+.sp-chip-role, .sp-chip-pending, .sp-badge { border-radius: 999px; }
+.sp-chip-role { padding: 1px 10px; box-shadow: var(--ring); font-family: var(--font-mono); font-size: 12px; }
+.sp-chip-role:empty, .sp-chip-team:empty, .sp-chip-user:empty { display: none; }
+.sp-chip-pending { padding: 1px 10px; color: #ab570a; background: #ffefcf; font-size: 12px; font-weight: 500; text-decoration: none; }
+.sp-chip-pending:hover { background: #ffe5b0; }
+.sp-badge { margin-left: auto; min-width: 20px; padding: 0 6px; color: #ab570a; background: #ffefcf; font-family: var(--font-mono); font-size: 11px; font-weight: 500; text-align: center; }
+@media (max-width: 1100px) { .sp-chip-user, .sp-chip-team { display: none; } }
+@media (max-width: 736px) { .sp-chip-role { display: none; } }
+
+/* ---------- Login: Microsoft e guia (conf/times/entra-login.js, inject.js) ---------- */
+.sp-entra { margin: 4px 0 8px; display: flex; flex-direction: column; gap: 12px; }
+.sp-entra-sep { margin: 0; display: flex; align-items: center; gap: 12px; color: var(--mute); font-size: 13px; text-align: center; }
+.sp-entra-sep::before, .sp-entra-sep::after { content: ""; flex: 1; border-top: 1px solid var(--hairline); }
+#login .sp-entra .button { margin-top: 0; text-transform: none; letter-spacing: normal; display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 14px; }
+#login .sp-entra .button--flat { background: var(--canvas); color: var(--ink); box-shadow: var(--ring); border: 0; }
+#login .sp-entra .button--flat:hover { background: var(--canvas-soft-2); }
+.sp-entra-msg { margin: 0; font-size: 13px; line-height: 1.5; text-wrap: pretty; text-align: left; }
+#login .sp-entra p { text-align: left; text-transform: none; }
+#login .sp-entra .sp-entra-sep { text-align: center; }
+.sp-entra-error { padding: 10px 12px; border-radius: var(--r-sm); background: #f7d4d6; color: #c50000; }
+.sp-entra-extra:empty { display: none; }
+#login .sp-login-foot { margin: 16px 0 0; text-align: center; font-size: 13px; text-transform: none; }
+#login .sp-login-foot a { color: var(--body); text-underline-offset: 3px; }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition-duration: 0ms !important; }
 }

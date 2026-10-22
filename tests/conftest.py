@@ -1,10 +1,11 @@
-"""Fixtures dos testes E2E do static-pages.
+"""Fixtures dos testes E2E do Static Pages.
 
 Rodam contra um container já no ar (local ou CI):
-    BASE_URL         padrão http://localhost:8080
+    BASE_URL         padrão http://localhost:8080 (com SP_BASE=/pages, use http://localhost:8080/pages)
     FB_ADMIN_USER    padrão admin
     FB_ADMIN_PASSWORD  obrigatório (ou lido do .env da raiz)
     BROWSER_CHANNEL  ex.: "msedge" para usar o Edge instalado (opcional)
+    BROWSER_PATH     caminho de um Chromium já instalado (opcional)
     SP_CONTAINER     nome do container para `docker exec` (padrão static-pages)
 
 Tudo que os testes criam usa o prefixo "zz-" / "zz." e é removido no final,
@@ -15,6 +16,7 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 import requests
@@ -34,6 +36,7 @@ def _env_file(key):
 
 
 BASE = os.environ.get("BASE_URL", "http://localhost:8080").rstrip("/")
+BASE_PATH = urlparse(BASE).path.rstrip("/")   # prefixo público, ex.: "/pages" (vazio na raiz)
 ADMIN_USER = os.environ.get("FB_ADMIN_USER") or _env_file("FB_ADMIN_USER") or "admin"
 ADMIN_PASS = os.environ.get("FB_ADMIN_PASSWORD") or _env_file("FB_ADMIN_PASSWORD")
 CONTAINER = os.environ.get("SP_CONTAINER", "static-pages")
@@ -111,7 +114,7 @@ def uid():
 def browser():
     channel = os.environ.get("BROWSER_CHANNEL") or None
     with sync_playwright() as p:
-        b = p.chromium.launch(channel=channel)
+        b = p.chromium.launch(channel=channel, executable_path=os.environ.get("BROWSER_PATH") or None)
         yield b
         b.close()
 

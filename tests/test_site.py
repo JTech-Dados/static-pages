@@ -1,7 +1,7 @@
 """Site público, NGINX e regras de segurança."""
 import requests
 
-from conftest import BASE
+from conftest import BASE, BASE_PATH
 
 
 def get(path, **kw):
@@ -21,7 +21,7 @@ def test_home_e_404():
 
 def test_admin_redireciona_com_barra():
     r = get("/admin")
-    assert r.status_code == 301 and r.headers["Location"] == "/admin/"
+    assert r.status_code == 301 and r.headers["Location"] == BASE_PATH + "/admin/"
 
 
 def test_headers_de_seguranca_e_sandbox():

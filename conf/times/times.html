@@ -3,37 +3,41 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Times - Static Pages</title>
-  <link rel="icon" href="/admin/static/img/icons/favicon-32x32.png" type="image/png">
+  <title>Acessos e times</title>
+  <link rel="icon" href="static/img/icons/favicon-32x32.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* Tokens: DESIGN.md */
+    /* Tokens: DESIGN.md (Vercel): ink + cinzas, hairlines, sombras leves, raios pequenos */
     :root {
-      --ink: #171717; --body: #4d4d4d; --mute: #888888;
-      --hairline: #ebebeb; --hairline-strong: #a1a1a1;
-      --canvas: #ffffff; --canvas-soft: #fafafa; --canvas-soft-2: #f5f5f5;
-      --link: #0070f3; --link-soft: #d3e5ff;
-      --warn: #ab570a; --warn-soft: #ffefcf; --bad: #c50000; --bad-soft: #f7d4d6;
-      --ring: inset 0 0 0 1px #00000014;
-      --elev-2: 0 1px 1px #00000005, 0 2px 2px #0000000a;
-      --elev-5: 0 1px 1px #00000005, 0 8px 16px -4px #0000000a, 0 24px 32px -8px #0000000f;
-      --sans: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
-      --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --bg: #fafafa; --surface: #ffffff; --surface-2: #f5f5f5; --field: #ffffff;
+      --line: #ebebeb; --line-2: #d4d4d4;
+      --ink: #171717; --ink-2: #4d4d4d; --muted: #666666; --faint: #a1a1a1;
+      --brand: #171717; --brand-hover: #000000;
+      --accent: #0070f3; --accent-strong: #171717; --accent-strong-hover: #000000; --accent-soft: #f5f5f5;
+      --danger: #c50000; --danger-soft: #f7d4d6; --ok-soft: #e7f6ec;
+      --focus: 0 0 0 2px #ffffff, 0 0 0 4px #0070f3;
+      --s1: #1a9d5c; --s2: #0070f3; --s3: #ab570a; --s4: #7928ca; --s5: #ee0000; --s6: #0e8a8a; --s7: #c044d8; --s8: #a8231b; --sx: #888888;
+      --f-disp: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --f-body: Geist, Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      --f-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --r-sm: 6px; --r-core: 8px; --r-shell: 12px; --r-pill: 999px;
+      --shadow: 0 1px 1px #00000005, 0 2px 2px #0000000a; --hi: none;
+      --ease: ease-out; --h-control: 36px;
     }
     * { box-sizing: border-box; margin: 0; }
     [hidden] { display: none !important; }
     html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-    body { min-height: 100vh; font: 400 14px/20px var(--sans); letter-spacing: -0.28px; color: var(--ink); background: var(--canvas-soft); }
+    body { min-height: 100vh; font: 400 15px/1.55 var(--f-body); color: var(--ink); background: var(--bg); }
     button, input, select { font: inherit; letter-spacing: inherit; }
-    .mono { font-family: var(--mono); font-size: 12px; }
+    .mono { font-family: var(--f-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: none; box-shadow: var(--focus); }
 
     /* ---------- Cabeçalho e menu iguais aos do painel ---------- */
     header {
       position: fixed; inset: 0 0 auto 0; z-index: 10; height: 56px; display: flex; align-items: center; gap: 16px;
-      padding: 0 16px; border-bottom: 1px solid var(--hairline);
-      background: color-mix(in srgb, var(--canvas) 80%, transparent); backdrop-filter: saturate(1.8) blur(8px);
+      padding: 0 16px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 80%, transparent); backdrop-filter: saturate(1.8) blur(8px);
     }
     header .logo { display: inline-flex; width: 40px; height: 40px; }
     header .logo img { width: 40px; height: 40px; }
@@ -41,146 +45,184 @@
 
     .side {
       position: fixed; top: 56px; left: 0; bottom: 0; width: 16em; padding-top: 12px; overflow-y: auto;
-      display: flex; flex-direction: column;
+      display: flex; flex-direction: column; background: transparent;
     }
     .side a, .side button {
       display: flex; align-items: center; gap: 12px; min-height: 40px; margin: 1px 8px; padding: 0 12px;
-      border: 0; border-radius: 6px; font-size: 15px; color: var(--body); text-decoration: none; background: transparent;
+      border: 0; border-radius: var(--r-sm); font-size: 15px; color: var(--ink); text-decoration: none; background: transparent;
       cursor: pointer; text-align: left;
-      transition-property: background-color, color; transition-duration: 150ms; transition-timing-function: ease-out;
+      transition: background-color 200ms var(--ease);
     }
-    .side a:hover, .side button:hover { background: var(--canvas-soft-2); color: var(--ink); }
-    .side a[aria-current=page] { background: var(--canvas-soft-2); color: var(--ink); font-weight: 500; }
+    .side a:hover, .side button:hover { background: var(--surface-2); }
+    .side a[aria-current=page] { background: var(--accent-soft); font-weight: 500; }
     .side .material-icons { font-size: 20px; width: 20px; flex-shrink: 0; }
     .material-icons { font-family: "Material Icons"; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; font-feature-settings: "liga"; }
-    .side hr { border: 0; border-top: 1px solid var(--hairline); margin: 6px 0; }
-    .side a:focus-visible, .side button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+    .side hr { border: 0; border-top: 1px solid var(--line); margin: 6px 12px; }
 
     main { margin-left: 16em; padding: 88px 32px 96px; max-width: calc(1120px + 16em); display: flex; flex-direction: column; gap: 32px; }
     .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 
+    @media (max-width: 1000px) { .card.team .stats { flex-basis: 100%; } }
     @media (max-width: 736px) {
-      .side { position: static; width: auto; flex-direction: row; flex-wrap: wrap; padding: 64px 8px 0; }
+      .side { position: static; width: auto; flex-direction: row; flex-wrap: wrap; padding: 64px 8px 0; background: transparent; }
       .side hr { display: none; }
       main { margin-left: 0; padding: 24px 16px 96px; }
+      .views { overflow-x: auto; scrollbar-width: none; }
+      .views a { white-space: nowrap; flex: none; }
+      main .card.team .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      main .card.team .card-actions { flex: 1 1 100%; }
     }
-    .intro h2 { font-size: 32px; line-height: 40px; font-weight: 600; letter-spacing: -1.28px; text-wrap: balance; }
-    .intro p { margin-top: 6px; color: var(--body); max-width: 640px; text-wrap: pretty; }
-    .section-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; font-size: 13px; font-weight: 500; color: var(--body); }
-    .section-title .mono { color: var(--mute); }
+    .intro h2 { font: 500 clamp(26px, 3vw, 34px)/1.15 var(--f-disp); letter-spacing: -0.03em; text-wrap: balance; }
+    .intro p { margin-top: 8px; color: var(--muted); font-weight: 300; max-width: 640px; text-wrap: pretty; }
+    .section-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; font: 500 14px/1.3 var(--f-body); }
+    .section-title .mono { color: var(--muted); font-weight: 400; }
 
+    /* Botões: principal laranja (texto branco), secundário neutro; verbo + objeto, sem caixa alta */
     .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px;
-      border: 0; border-radius: 6px; cursor: pointer; font-weight: 500; color: #fff; background: var(--ink);
-      transition-property: background-color, transform, box-shadow; transition-duration: 150ms; transition-timing-function: ease-out;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 18px;
+      border: 0; border-radius: var(--r-sm); cursor: pointer; font: 500 14px/1 var(--f-body); color: #fff; background: var(--accent-strong);
+      transition: background-color 200ms var(--ease), transform 200ms var(--ease), border-color 200ms var(--ease);
     }
-    .btn:hover { background: #000; }
-    .btn:active { transform: scale(0.96); }
-    .btn.secondary { color: var(--ink); background: var(--canvas); box-shadow: var(--ring); }
-    .btn.secondary:hover { background: var(--canvas-soft-2); }
-    .btn.danger { color: var(--bad); background: var(--canvas); box-shadow: var(--ring); }
-    .btn.danger:hover { background: var(--bad-soft); }
-    .btn.sm { height: 28px; padding: 0 10px; font-size: 13px; }
-    .btn:disabled { opacity: .5; cursor: default; transform: none; }
-    .btn:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+    .btn:hover { background: var(--accent-strong-hover); }
+    .btn:active { transform: scale(.97); }
+    .btn.secondary { color: var(--ink); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+    .btn.secondary:hover { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+    .btn.danger { color: var(--danger); background: var(--surface); box-shadow: inset 0 0 0 1px var(--danger); }
+    .btn.danger:hover { background: var(--danger-soft); }
+    .btn.sm { height: 30px; padding: 0 12px; font-size: 13px; }
+    .btn:disabled { color: var(--faint); background: var(--surface-2); box-shadow: none; cursor: default; transform: none; }
 
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 16px; }
-    .card { background: var(--canvas); border-radius: 8px; box-shadow: var(--ring), var(--elev-2); padding: 20px; display: flex; flex-direction: column; gap: 16px; animation: enter 250ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+    .card { background: var(--surface); border-radius: var(--r-core); box-shadow: var(--shadow), var(--hi); padding: 22px; display: flex; flex-direction: column; gap: 16px; animation: enter 700ms var(--ease) both; }
     .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .card-head h3 { font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.5px; overflow-wrap: anywhere; }
-    .card-head a { color: var(--mute); text-decoration: none; }
-    .card-head a:hover { color: var(--link); }
+    .card-head h3 { font: 500 18px/1.3 var(--f-disp); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+    .card-head a { color: var(--brand); text-decoration: none; }
+    .card-head a:hover { color: var(--brand-hover); text-decoration: underline; text-underline-offset: 3px; }
 
+    /* Card de time em largura total: título, números, cota e ações numa linha; as pessoas ficam no diálogo */
+    #teams { display: flex; flex-direction: column; }
+    .card.team { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 20px 32px; cursor: pointer; transition: transform 250ms var(--ease); }
+    .card.team:hover { transform: translateY(-1px); }
+    .team-title { flex: 1 1 220px; min-width: 200px; display: flex; flex-direction: column; gap: 6px; }
+    .team-title h3 { font: 500 20px/1.3 var(--f-disp); letter-spacing: -0.02em; overflow-wrap: anywhere; }
+    .team-title a { width: fit-content; color: var(--brand); text-decoration: none; }
+    .team-title a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .card.team .stats { flex: 3 1 460px; grid-template-columns: repeat(4, minmax(104px, 1fr)); }
+    .card.team .stat { padding: 10px 12px; }
+    .card.team .stat b { font-size: 18px; white-space: nowrap; }
+    .card.team .stat span { white-space: nowrap; }
+    #dlg-people { width: min(560px, calc(100vw - 32px)); }
+    .card.team .quota { flex: 1 1 220px; min-width: 200px; }
+    .card.team .card-actions { flex: 0 0 auto; }
+    .avatars { display: flex; align-items: center; min-height: 26px; }
+    .avatars .avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--surface); }
+    .avatars .avatar:first-child { margin-left: 0; }
+    .avatars .more-n, .avatars .faint { margin-left: 8px; color: var(--muted); font-size: 13px; }
+    .avatars .faint { margin-left: 0; }
+    .people { padding: 28px; display: flex; flex-direction: column; gap: 16px; max-height: 80vh; overflow-y: auto; }
+    .people-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .people-head h2 { font: 500 20px/1.3 var(--f-disp); letter-spacing: -0.02em; }
+    .people-head h2 span { color: var(--brand); }
+    .members .person { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+    .members .person b { font-weight: 500; }
+    .members .person small { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
     .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .stat { padding: 10px 12px; border-radius: 6px; background: var(--canvas-soft); box-shadow: var(--ring); }
-    .stat b { display: block; font-size: 18px; line-height: 24px; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
-    .stat span { font-size: 12px; color: var(--mute); }
+    .stat { padding: 10px 14px; border-radius: var(--r-sm); background: var(--surface-2); }
+    .stat b { display: block; font: 500 20px/1.25 var(--f-mono); font-variant-numeric: tabular-nums; }
+    .stat span { font-size: 12.5px; color: var(--muted); }
 
+    /* Cota: azul dentro do limite; amarelo perto; vermelho acima (sempre com percentual e símbolo) */
     .quota { display: flex; flex-direction: column; gap: 6px; }
-    .quota .bar { height: 6px; border-radius: 9999px; background: var(--canvas-soft-2); overflow: hidden; box-shadow: var(--ring); }
-    .quota .fill { height: 100%; border-radius: inherit; background: var(--ink); transform-origin: left; transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1); }
-    .quota.warn .fill { background: var(--warn); } .quota.bad .fill { background: var(--bad); }
-    .quota .label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; color: var(--mute); font-variant-numeric: tabular-nums; }
-    .quota.warn .label b { color: var(--warn); } .quota.bad .label b { color: var(--bad); }
+    .quota .bar { height: 8px; border-radius: var(--r-pill); background: var(--surface-2); overflow: hidden; }
+    .quota .fill { height: 100%; border-radius: inherit; background: var(--brand); transform-origin: left; transition: transform 400ms var(--ease); }
+    .quota.warn .fill { background: var(--s3); } .quota.bad .fill { background: var(--s5); }
+    .quota .label { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .quota .label b { color: var(--ink); font-weight: 500; font-family: var(--f-mono); }
+    .quota.warn .label b::before { content: "⚠ "; } .quota.bad .label b::before { content: "✕ "; color: var(--danger); }
 
     .members { list-style: none; padding: 0; display: flex; flex-direction: column; }
-    .members li { display: flex; align-items: center; gap: 8px; min-height: 40px; border-top: 1px solid var(--hairline); }
+    .members li { display: flex; align-items: center; gap: 8px; min-height: 52px; border-top: 1px solid var(--line); }
     .members .who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
-    .avatar { width: 24px; height: 24px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 600; text-transform: uppercase; background: var(--canvas-soft-2); box-shadow: var(--ring); }
-    .members select { height: 28px; max-width: 140px; padding: 0 6px; border: 0; border-radius: 6px; color: var(--body); background: var(--canvas-soft); box-shadow: var(--ring); cursor: pointer; }
-    .members .none { color: var(--mute); padding: 8px 0; border-top: 1px solid var(--hairline); }
+    .avatar { width: 26px; height: 26px; flex-shrink: 0; display: grid; place-items: center; border-radius: var(--r-pill); font: 500 11px/1 var(--f-body); text-transform: uppercase; color: #fff; background: var(--brand); }
+    .members select { height: 30px; max-width: 150px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--field); cursor: pointer; }
+    .members .none { color: var(--muted); padding: 8px 0; border-top: 1px solid var(--line); }
     .card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-    .views { display: flex; gap: 4px; border-bottom: 1px solid var(--hairline); }
-    .views a { position: relative; padding: 10px 12px; color: var(--body); text-decoration: none; font-weight: 500; border-radius: 6px 6px 0 0; }
-    .views a:hover { color: var(--ink); background: var(--canvas-soft-2); }
+    /* Abas: sublinhado de marca na ativa */
+    .views { display: flex; gap: 4px; border-bottom: 1px solid var(--line-2); }
+    .views a { position: relative; padding: 10px 14px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; border-radius: 8px 8px 0 0; transition: color 200ms var(--ease), background-color 200ms var(--ease); }
+    .views a:hover { color: var(--ink); background: var(--surface-2); }
     .views a[aria-selected=true] { color: var(--ink); }
-    .views a[aria-selected=true]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; background: var(--ink); border-radius: 2px; }
-    .table { width: 100%; border-collapse: collapse; background: var(--canvas); border-radius: 8px; overflow: hidden; box-shadow: var(--ring), var(--elev-2); }
-    .table th, .table td { padding: 10px 14px; text-align: left; border-top: 1px solid var(--hairline); vertical-align: middle; }
-    .table th { border-top: 0; font: 400 12px/16px var(--mono); color: var(--mute); background: var(--canvas-soft); }
-    .table td.path { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
-    .table td.when { font-family: var(--mono); font-size: 12px; color: var(--mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .views a[aria-selected=true]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px; background: var(--ink); border-radius: 2px 2px 0 0; }
+    .table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--r-sm); overflow: hidden; box-shadow: var(--shadow); }
+    .table th, .table td { padding: 12px 16px; text-align: left; border-top: 1px solid var(--line); vertical-align: middle; }
+    .table th { border-top: 0; font: 500 13px/1.3 var(--f-body); color: var(--muted); background: var(--surface-2); }
+    .table td select { height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--field); cursor: pointer; }
+    .table td select:disabled { color: var(--faint); background: var(--surface-2); cursor: default; }
+    .table .faint { color: var(--muted); }
+    .hint-inline { color: var(--muted); font-weight: 400; font-size: 13px; }
+    .table td.path { font-family: var(--f-mono); font-size: 12px; overflow-wrap: anywhere; }
+    .table td.when { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
     .table td.acts { white-space: nowrap; text-align: right; }
     .table td.acts .btn + .btn { margin-left: 6px; }
-    .ev { display: inline-block; padding: 2px 8px; border-radius: 9999px; font: 500 11px/16px var(--mono); background: var(--canvas-soft-2); box-shadow: var(--ring); color: var(--body); }
-    .ev.del { color: var(--bad); background: var(--bad-soft); } .ev.new { color: #0761d1; background: var(--link-soft); }
+    .ev { display: inline-block; padding: 2px 10px; border-radius: var(--r-pill); font: 500 12px/1.4 var(--f-body); background: var(--surface-2); color: var(--ink-2); }
+    .ev.del { color: var(--danger); background: var(--danger-soft); } .ev.new { color: var(--brand); background: var(--field); }
     .filters { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,2fr); gap: 8px; margin-bottom: 12px; }
     .table-wrap { overflow-x: auto; }
-    .more { margin-top: 12px; text-align: center; color: var(--mute); font-size: 13px; }
+    .more { margin-top: 12px; text-align: center; color: var(--muted); font-size: 13.5px; }
     .loose { display: flex; flex-wrap: wrap; gap: 8px; }
-    .loose .item { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px 0 14px; border-radius: 8px; background: var(--canvas); box-shadow: var(--ring); }
+    .loose .item { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 6px 0 16px; border-radius: var(--r-sm); background: var(--surface); box-shadow: var(--shadow); }
 
-    .empty, .notice { padding: 40px 24px; text-align: center; color: var(--body); border-radius: 8px; background: var(--canvas); box-shadow: var(--ring); }
-    .notice a { color: var(--link); }
+    .empty, .notice { padding: 40px 24px; text-align: center; color: var(--ink-2); border-radius: var(--r-core); background: var(--surface); box-shadow: var(--shadow); line-height: 1.6; }
+    .notice a { color: var(--brand); }
 
-    dialog { width: min(440px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: 12px; box-shadow: var(--ring), var(--elev-5); color: var(--ink); }
-    dialog[open] { animation: enter 200ms cubic-bezier(0.16, 1, 0.3, 1); }
-    dialog::backdrop { background: #00000033; backdrop-filter: blur(2px); }
-    dialog form { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
-    dialog h2 { font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.6px; }
-    dialog p.hint { color: var(--body); font-size: 13px; }
-    label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500; }
-    label small { font-weight: 400; color: var(--mute); }
-    input[type=text], input[type=number], input[type=password], select.full {
-      height: 40px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 6px; background: var(--canvas); color: var(--ink);
-      transition-property: border-color, box-shadow; transition-duration: 150ms; transition-timing-function: ease-out;
+    dialog { margin: auto; width: min(460px, calc(100vw - 32px)); padding: 0; border: 0; border-radius: var(--r-core); box-shadow: var(--shadow), 0 0 0 1px var(--ring); color: var(--ink); background: var(--surface); }
+    dialog[open] { animation: enter 300ms var(--ease); }
+    dialog::backdrop { background: rgba(13,19,33,.45); backdrop-filter: blur(3px); }
+    dialog form { padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+    dialog h2 { font: 500 22px/1.25 var(--f-disp); letter-spacing: -0.02em; }
+    dialog p.hint { color: var(--muted); font-size: 13.5px; }
+    label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 500; }
+    label small { font-weight: 400; color: var(--muted); font-size: 13px; }
+    input[type=text], input[type=email], input[type=number], input[type=password], select.full {
+      height: var(--h-control); padding: 0 14px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--field); color: var(--ink); font-weight: 400;
     }
-    input:focus, select.full:focus { outline: none; border-color: var(--hairline-strong); box-shadow: 0 0 0 3px var(--link-soft); }
+    input[type=text]:hover, input[type=email]:hover, input[type=number]:hover, input[type=password]:hover, select.full:hover { border-color: var(--line-2); }
+    input:focus, select.full:focus { outline: 2px solid var(--brand); outline-offset: 0; box-shadow: none; }
     .row { display: flex; gap: 8px; } .row > * { flex: 1; } .row .btn { flex: 0 0 auto; }
-    .tabs { display: flex; gap: 4px; padding: 4px; border-radius: 8px; background: var(--canvas-soft-2); box-shadow: var(--ring); }
-    .tabs button { flex: 1; height: 32px; border: 0; border-radius: 6px; background: transparent; color: var(--body); cursor: pointer; font-weight: 500; }
-    .tabs button[aria-selected=true] { background: var(--canvas); color: var(--ink); box-shadow: var(--ring), var(--elev-2); }
+    .tabs { display: flex; gap: 4px; padding: 4px; border-radius: var(--r-sm); background: var(--surface-2); }
+    .tabs button { flex: 1; height: 34px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; font-weight: 500; font-size: 13.5px; }
+    .tabs button[aria-selected=true] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
     .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
-    .secret { font-family: var(--mono); padding: 10px 12px; border-radius: 6px; background: var(--canvas-soft); box-shadow: var(--ring); overflow-wrap: anywhere; }
+    .secret { font-family: var(--f-mono); padding: 12px 14px; border-radius: var(--r-sm); background: var(--surface-2); overflow-wrap: anywhere; }
 
-    #toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none; padding: 10px 16px; border-radius: 8px; color: #fff; background: var(--ink); box-shadow: var(--elev-5); transition-property: opacity, transform; transition-duration: 200ms; transition-timing-function: ease-out; }
+    #toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none; padding: 12px 18px; border-radius: var(--r-sm); color: #fff; background: var(--ink); box-shadow: var(--shadow); transition: opacity 250ms var(--ease), transform 250ms var(--ease); }
     #toast.show { opacity: 1; transform: translate(-50%, 0); }
-    #toast.error { background: var(--bad); }
+    #toast.error { color: var(--danger); background: var(--danger-soft); box-shadow: var(--shadow), inset 0 0 0 1px var(--danger); }
 
-    .skeleton { height: 260px; border-radius: 8px; box-shadow: var(--ring); background: linear-gradient(90deg, var(--canvas-soft-2), var(--canvas), var(--canvas-soft-2)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
-    @keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .skeleton { height: 260px; border-radius: var(--r-core); background: linear-gradient(90deg, var(--surface-2), var(--surface), var(--surface-2)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+    @keyframes enter { from { opacity: 0; transform: translateY(22px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
     @keyframes shimmer { to { background-position: -200% 0; } }
     @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition-duration: 0ms !important; } }
   </style>
 </head>
 <body>
   <header>
-    <a class="logo" href="/admin/files/" aria-label="Arquivos"><img src="/admin/static/img/logo.svg" alt=""></a>
+    <a class="logo" href="files/" aria-label="Arquivos"><img src="static/img/logo.svg" alt=""></a>
     <span class="spacer"></span>
   </header>
 
   <nav class="side" aria-label="Menu do painel">
-    <a href="/admin/files/">
+    <a href="files/">
       <i class="material-icons" aria-hidden="true">folder</i>
       Arquivos
     </a>
     <hr>
-    <a href="/admin/times" aria-current="page">
+    <a href="times" aria-current="page">
       <i class="material-icons" aria-hidden="true">groups</i>
-      Times
+      Acessos
     </a>
-    <a href="/admin/settings/profile">
+    <a href="settings/profile">
       <i class="material-icons" aria-hidden="true">settings_applications</i>
       Configurações
     </a>
@@ -193,7 +235,7 @@
   <main id="app">
     <section class="intro page-head">
       <div>
-        <h2>Times e acessos</h2>
+        <h2>Acessos e times</h2>
         <p>Cada time é uma pasta do site. Quem entra num time só enxerga e edita a pasta dele no painel.</p>
       </div>
       <button class="btn" id="btn-new" type="button" hidden>+ Novo time</button>
@@ -203,6 +245,8 @@
       <a href="#times" role="tab" data-view-tab="times" aria-selected="true">Times</a>
       <a href="#lixeira" role="tab" data-view-tab="lixeira" aria-selected="false">Lixeira</a>
       <a href="#atividade" role="tab" data-view-tab="atividade" aria-selected="false">Atividade</a>
+      <a href="#usuarios" role="tab" data-view-tab="usuarios" aria-selected="false">Usuários</a>
+      <a href="#acessos" role="tab" data-view-tab="acessos" aria-selected="false" data-entra hidden>Pedidos <span class="mono" id="acc-badge"></span></a>
     </nav>
 
     <div data-view="times">
@@ -229,6 +273,16 @@
       </div>
       <div id="activity"></div>
     </div>
+
+    <div data-view="usuarios" hidden>
+      <div class="section-title">Usuários <span class="mono" id="users-count"></span> <span class="hint-inline">papel e time de cada pessoa; para adicionar, use + Adicionar pessoa no card do time</span></div>
+      <div id="users"></div>
+    </div>
+
+    <div data-view="acessos" hidden>
+      <div class="section-title">Pedidos de acesso <span class="mono" id="acc-note">quem entrou com a Microsoft e ainda não tem time</span></div>
+      <div id="access"></div>
+    </div>
   </main>
 
   <!-- Novo / editar time -->
@@ -239,7 +293,7 @@
       <label>Pasta <small>endereço no site; não muda depois de criado</small>
         <input type="text" name="slug" required pattern="[a-z0-9][a-z0-9\-]{0,49}" maxlength="50" autocomplete="off">
       </label>
-      <label>Cota de espaço (MB) <small>opcional; só alerta, não bloqueia uploads</small>
+      <label>Cota de espaço (MB) <small id="cota-hint">opcional; vazio usa a cota padrão. Só alerta, não bloqueia uploads</small>
         <input type="number" name="cota" min="1" step="1" inputmode="numeric">
       </label>
       <div class="dlg-actions">
@@ -249,6 +303,31 @@
     </form>
   </dialog>
 
+  <!-- Mudar o papel de um admin para editor/leitor: precisa de um time -->
+  <dialog id="dlg-role">
+    <form method="dialog" id="form-role">
+      <h2 id="role-title">Mudar papel</h2>
+      <p class="hint" id="role-hint"></p>
+      <label>Time <select class="full" name="team" required></select></label>
+      <div class="dlg-actions">
+        <button class="btn secondary" value="cancel" formnovalidate>Cancelar</button>
+        <button class="btn" value="ok">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Pessoas do time -->
+  <dialog id="dlg-people" aria-labelledby="people-title">
+    <div class="people">
+      <div class="people-head">
+        <h2 id="people-title">Pessoas do time <span id="people-team"></span></h2>
+        <button class="btn secondary sm" type="button" id="people-close">Fechar</button>
+      </div>
+      <ul class="members" id="people-list"></ul>
+      <div class="dlg-actions"><button class="btn" type="button" id="people-add">+ Adicionar pessoa</button></div>
+    </div>
+  </dialog>
+
   <!-- Adicionar membro -->
   <dialog id="dlg-member">
     <form method="dialog" id="form-member">
@@ -256,12 +335,17 @@
       <div class="tabs" role="tablist">
         <button type="button" role="tab" data-tab="new" aria-selected="true">Nova pessoa</button>
         <button type="button" role="tab" data-tab="existing" aria-selected="false">Usuário existente</button>
+        <button type="button" role="tab" data-tab="microsoft" aria-selected="false" data-entra hidden>Conta Microsoft</button>
       </div>
       <div data-pane="new">
         <label>Usuário <input type="text" name="username" maxlength="60" autocomplete="off" pattern="[A-Za-z0-9._@\-]+"></label>
         <label style="margin-top:14px">Senha inicial
           <div class="row"><input type="text" name="password" minlength="12" autocomplete="off"><button class="btn secondary" type="button" id="gen-pass">Gerar</button></div>
         </label>
+      </div>
+      <div data-pane="microsoft" hidden>
+        <label>E-mail da conta Microsoft <input type="email" name="email" maxlength="120" autocomplete="off" placeholder="nome@empresa.com"></label>
+        <p class="hint" style="margin-top:8px">A pessoa entra por “Entrar com Microsoft” na tela de login do painel. Não há senha para enviar.</p>
       </div>
       <div data-pane="existing" hidden>
         <label>Usuário <select class="full" name="existing"></select></label>
@@ -299,12 +383,17 @@
     //   restringe o painel àquela pasta).
     // - Usa o token do login atual (localStorage "jwt"); só admin.
     // ============================================================
+    // Prefixo público do app (ex.: "/pages"), deduzido da URL desta tela:
+    // <prefixo>/admin/times. Vazio quando o app está na raiz.
+    const BASE = location.pathname.replace(/\/admin(\/.*)?$/, "");
+    window.SP_BASE = BASE;   // reaproveitado por times-tabs.js
+
     // Ícones: reaproveita a fonte Material Icons do próprio File Browser.
     // O nome do arquivo é versionado, então descobre o CSS do painel em
     // vez de fixar o caminho (continua certo após atualizar o File Browser).
     (async function loadPanelIcons() {
       try {
-        const html = await (await fetch("/admin/", { cache: "force-cache" })).text();
+        const html = await (await fetch(BASE + "/admin/", { cache: "force-cache" })).text();
         const href = (html.match(/href="([^"]+\/assets\/index-[^"]+\.css)"/) || [])[1];
         if (!href) return;
         const css = await (await fetch(href, { cache: "force-cache" })).text();
@@ -317,7 +406,7 @@
       } catch { /* sem ícones, o menu continua funcionando com os textos */ }
     })();
 
-    const API = "/admin/api";
+    const API = BASE + "/admin/api";
     const TEAM_FILE = ".time.json";
     const NO_TEAM_SCOPE = "/_sem-time";
     const INDEX_NAMES = new Set(["index.html", "index.htm", "Index.html", "Index.htm", "INDEX.html", "INDEX.HTML", "INDEX.HTM"]);
@@ -333,11 +422,12 @@
     };
     const enc = (path) => path.split("/").map(encodeURIComponent).join("/");
     const normScope = (s) => "/" + String(s || "").replace(/^\.?\/*/, "").replace(/\/+$/, "");
-    const fmtBytes = (b) => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : b < 1073741824 ? `${(b / 1048576).toFixed(1)} MB` : `${(b / 1073741824).toFixed(2)} GB`;
+    const dec = (n, d) => n.toFixed(d).replace(".", ",");   // vírgula decimal (pt-BR)
+    const fmtBytes = (b) => b < 1024 ? `${b} B` : b < 1048576 ? `${dec(b / 1024, 1)} KB` : b < 1073741824 ? `${dec(b / 1048576, 1)} MB` : `${dec(b / 1073741824, 2)} GB`;
     const slugify = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50);
 
     let token = null;
-    let state = { users: [], teams: [], loose: [] };
+    let state = { users: [], teams: [], loose: [], nomes: {}, cotaPadrao: 0 };
 
     function toast(msg, isError = false) {
       const t = $("#toast");
@@ -377,10 +467,14 @@
     }
 
     async function load() {
-      const [users, root, v] = await Promise.all([
+      const [users, root, v, nomes, cfg] = await Promise.all([
         api("/users"), listDir(""),
-        fetch("/_visitas.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+        fetch(BASE + "/_visitas.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+        fetch(BASE + "/admin/entra/nomes", { headers: { "X-Auth": token }, cache: "no-store" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+        fetch(BASE + "/admin/entra/config", { cache: "no-store" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
       ]);
+      state.nomes = nomes || {};
+      state.cotaPadrao = Number(cfg && cfg.cotaPadraoMb) > 0 ? Number(cfg.cotaPadraoMb) : 0;
       const visitas = (v && v.paginas) || {};
       state.users = users;
       const dirs = (root.items || []).filter((i) => i.isDir && !/^[_.]/.test(i.name));
@@ -407,24 +501,37 @@
       render();
     }
 
-    function teamCard(t, i) {
-      const card = el("article", "card");
-      card.style.animationDelay = `${Math.min(i, 10) * 40}ms`;
+    // "Maria Souza de Oliveira Santos" -> "Maria Santos"; sem nome, deduz do e-mail
+    function nomeCurto(nome, fallback) {
+      let p = String(nome || "").trim().split(/\s+/).filter(Boolean);
+      if (!p.length && String(fallback || "").includes("@")) p = fallback.split("@")[0].split(/[._-]+/).filter(Boolean).map((x) => x.charAt(0).toUpperCase() + x.slice(1));
+      if (!p.length) return String(fallback || "");
+      return p.length === 1 ? p[0] : `${p[0]} ${p[p.length - 1]}`;
+    }
+    // nome para mostrar: o da Microsoft (curto), o deduzido do e-mail ou o próprio usuário
+    const nomeDe = (u) => (state.nomes[u.username.toLowerCase()] || {}).curto || nomeCurto("", u.username);
 
-      const head = el("div", "card-head");
-      const titles = el("div");
+    function teamCard(t, i) {
+      const card = el("article", "card team");
+      card.style.animationDelay = `${Math.min(i, 10) * 40}ms`;
+      card.title = "Clique para ver as pessoas do time";
+
+      const titles = el("div", "team-title");
       titles.append(el("h3", null, t.nome));
       const link = el("a", "mono", `/${t.slug}/`);
-      link.href = `/${encodeURIComponent(t.slug)}/`;
+      link.href = `${BASE}/${encodeURIComponent(t.slug)}/`;
       link.target = "_blank";
       link.rel = "noopener";
       titles.append(link);
-      head.append(titles);
-      const edit = el("button", "btn secondary sm", "Editar");
-      edit.type = "button";
-      edit.onclick = () => openTeamDialog(t);
-      head.append(edit);
-      card.append(head);
+      const faces = el("div", "avatars");
+      if (!t.members.length) faces.append(el("span", "faint", "Ninguém neste time ainda"));
+      for (const u of t.members.slice(0, 5)) {
+        const a = el("span", "avatar", nomeDe(u).charAt(0));
+        a.title = nomeDe(u);
+        faces.append(a);
+      }
+      if (t.members.length > 5) faces.append(el("span", "more-n", `+${t.members.length - 5}`));
+      titles.append(faces);
 
       const stats = el("div", "stats");
       for (const [v, label] of [[t.members.length, t.members.length === 1 ? "pessoa" : "pessoas"], [t.pages, t.pages === 1 ? "página" : "páginas"], [fmtBytes(t.size) + (t.truncated ? "+" : ""), "em uso"], [t.views.toLocaleString("pt-BR"), "visitas · 30d"]]) {
@@ -432,32 +539,60 @@
         s.append(el("b", null, String(v)), el("span", null, label));
         stats.append(s);
       }
-      card.append(stats);
 
-      if (t.cota_mb) {
-        const limit = t.cota_mb * 1048576;
+      // cota do time; sem cota própria vale a padrão do ambiente (TEAM_QUOTA_MB)
+      const cota = t.cota_mb || state.cotaPadrao;
+      const q = el("div", "quota");
+      if (cota) {
+        const limit = cota * 1048576;
         const ratio = t.size / limit;
-        const q = el("div", "quota" + (ratio >= 1 ? " bad" : ratio >= 0.8 ? " warn" : ""));
+        q.className = "quota" + (ratio >= 1 ? " bad" : ratio >= 0.8 ? " warn" : "");
         const bar = el("div", "bar");
         const fill = el("div", "fill");
         fill.style.transform = `scaleX(${Math.min(ratio, 1)})`;
         bar.append(fill);
         const label = el("div", "label");
-        label.append(el("span", null, `cota ${fmtBytes(limit)}`), el("b", null, `${Math.round(ratio * 100)}%`));
+        label.append(el("span", null, `cota ${fmtBytes(limit)}${t.cota_mb ? "" : " (padrão)"}`), el("b", null, `${Math.round(ratio * 100)}%`));
         q.append(bar, label);
-        card.append(q);
       }
 
-      const list = el("ul", "members");
+      const actions = el("div", "card-actions");
+      const people = el("button", "btn secondary sm", `Pessoas (${t.members.length})`);
+      people.type = "button";
+      people.onclick = () => openPeople(t);
+      const add = el("button", "btn sm", "+ Adicionar pessoa");
+      add.type = "button";
+      add.onclick = () => openMemberDialog(t);
+      const edit = el("button", "btn secondary sm", "Editar");
+      edit.type = "button";
+      edit.onclick = () => openTeamDialog(t);
+      actions.append(people, add, edit);
+
+      card.append(titles, stats, q, actions);
+      // clicar em qualquer lugar do card (fora de links e botões) abre as pessoas
+      card.addEventListener("click", (e) => { if (!e.target.closest("a, button, select, input")) openPeople(t); });
+      return card;
+    }
+
+    // ---------- Diálogo: pessoas do time ----------
+    let peopleSlug = null;
+
+    function fillPeople(t) {
+      $("#people-team").textContent = t.nome;
+      const list = $("#people-list");
+      list.replaceChildren();
       if (!t.members.length) list.append(el("li", "none", "Ninguém neste time ainda."));
       for (const u of t.members) {
         const li = el("li");
         const who = el("span", "who");
-        who.append(el("span", "avatar", u.username.charAt(0)), el("span", null, u.username));
+        const name = el("span", "person");
+        name.append(el("b", null, nomeDe(u)));
+        if (nomeDe(u) !== u.username) name.append(el("small", null, u.username));
+        who.append(el("span", "avatar", nomeDe(u).charAt(0)), name);
         li.append(who);
 
         const move = el("select");
-        move.setAttribute("aria-label", `Mover ${u.username} para outro time`);
+        move.setAttribute("aria-label", `Mover ${nomeDe(u)} para outro time`);
         move.append(new Option("Mover para…", ""));
         for (const other of state.teams) if (other.slug !== t.slug) move.append(new Option(other.nome, "/" + other.slug));
         move.append(new Option("Sem time", NO_TEAM_SCOPE));
@@ -470,15 +605,13 @@
         li.append(del);
         list.append(li);
       }
-      card.append(list);
+    }
 
-      const actions = el("div", "card-actions");
-      const add = el("button", "btn sm", "+ Adicionar pessoa");
-      add.type = "button";
-      add.onclick = () => openMemberDialog(t);
-      actions.append(add);
-      card.append(actions);
-      return card;
+    function openPeople(t) {
+      peopleSlug = t.slug;
+      fillPeople(t);
+      const dlg = $("#dlg-people");
+      if (!dlg.open) dlg.showModal();
     }
 
     function render() {
@@ -491,6 +624,11 @@
         teams.append(box);
       }
       state.teams.forEach((t, i) => teams.append(teamCard(t, i)));
+      // diálogo de pessoas aberto: reflete mudanças (mover/remover) sem fechar
+      if ($("#dlg-people").open) {
+        const cur = state.teams.find((x) => x.slug === peopleSlug);
+        if (cur) fillPeople(cur); else $("#dlg-people").close();
+      }
 
       $("#loose-section").hidden = !state.loose.length;
       const loose = $("#loose");
@@ -514,16 +652,23 @@
       // time novo ganha uma página inicial pronta (nunca sobrescreve)
       if (create) {
         try {
-          const modelo = await (await fetch("/admin/times/modelo-time.html", { cache: "no-cache" })).text();
+          const modelo = (await (await fetch(BASE + "/admin/times/modelo-time.html", { cache: "no-cache" })).text())
+            .replaceAll("__SP_BASE__", BASE);
           await api(`/resources/${encodeURIComponent(slug)}/index.html?override=false`, { method: "POST", body: modelo });
         } catch { /* já existe um index.html ou o modelo não carregou */ }
       }
     }
 
+    // Registra no histórico (aba Atividade) as ações de gestão feitas aqui; o sp-auth grava em nome do admin
+    const logEvento = (evento, detalhe) => fetch(BASE + "/admin/entra/evento", {
+      method: "POST", headers: { "X-Auth": token, "Content-Type": "application/json" }, body: JSON.stringify({ evento, detalhe }),
+    }).catch(() => {});
+
     async function moveUser(u, scope, label) {
       try {
         await api(`/users/${u.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: userBody({ id: u.id, scope }, ["scope"]) });
         toast(`${u.username} agora está em ${label}.`);
+        logEvento("acesso_time", `${u.username} foi para ${label}`);
         await load();
       } catch (e) { toast(e.message, true); }
     }
@@ -533,6 +678,7 @@
       try {
         await api(`/users/${u.id}`, { method: "DELETE" });
         toast(`${u.username} removido.`);
+        logEvento("acesso_removido", `${u.username} removido`);
         await load();
       } catch (e) { toast(e.message, true); }
     }
@@ -557,6 +703,7 @@
       f.slug.value = t ? t.slug : "";
       f.slug.readOnly = !!t;
       f.cota.value = t && t.cota_mb ? t.cota_mb : "";
+      f.cota.placeholder = state.cotaPadrao ? `padrão: ${state.cotaPadrao} MB` : "";
       f.nome.oninput = () => { if (!t) f.slug.value = slugify(f.nome.value); };
 
       let extra = f.querySelector("[data-remove]");
@@ -599,6 +746,7 @@
       f.querySelectorAll("[data-pane]").forEach((p) => (p.hidden = p.dataset.pane !== tab));
       f.username.required = f.password.required = tab === "new";
       f.existing.required = tab === "existing";
+      f.email.required = tab === "microsoft";
       f.dataset.tab = tab;
     }
 
@@ -624,6 +772,10 @@
             if (u) await moveUser(u, "/" + t.slug, t.nome);
             return;
           }
+          if (f.dataset.tab === "microsoft") {
+            await addMicrosoftMember(f.email.value.trim().toLowerCase(), t);
+            return;
+          }
           const username = f.username.value.trim();
           const password = f.password.value;
           if (state.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
@@ -634,7 +786,8 @@
             method: "POST", headers: { "Content-Type": "application/json" },
             body: userBody({ username, password, scope: "/" + t.slug, locale: "pt-br", lockPassword: false, perm: MEMBER_PERM, commands: [], rules: [], hideDotfiles: true, viewMode: "list" }),
           });
-          $("#secret").textContent = `Endereço: ${location.origin}/admin/\nUsuário: ${username}\nSenha: ${password}`;
+          logEvento("acesso_criado", `${username} adicionado ao time ${t.nome}`);
+          $("#secret").textContent = `Endereço: ${location.origin}${BASE}/admin/\nUsuário: ${username}\nSenha: ${password}`;
           $("#secret").style.whiteSpace = "pre-line";
           $("#dlg-secret").showModal();
           await load();
@@ -642,6 +795,23 @@
       };
       dlg.returnValue = "";
       dlg.showModal();
+    }
+
+    // Conta Microsoft: usuário do File Browser com o e-mail como nome e senha aleatória
+    // que ninguém vê; o acesso é só pelo "Entrar com Microsoft" (sp-auth troca a senha a cada login).
+    async function addMicrosoftMember(email, t, aprovacao = false) {
+      if (!/^[^\s@]+@[^\s@]+$/.test(email)) { toast("Informe um e-mail válido.", true); return; }
+      if (state.users.some((u) => u.username.toLowerCase() === email)) {
+        toast(`Já existe um usuário "${email}". Use a aba Usuário existente.`, true);
+        return;
+      }
+      await api("/users", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: userBody({ username: email, password: genPassword() + genPassword(), scope: "/" + t.slug, locale: "pt-br", lockPassword: true, perm: MEMBER_PERM, commands: [], rules: [], hideDotfiles: true, viewMode: "list" }),
+      });
+      toast(`${email} agora acessa o time ${t.nome} com a conta Microsoft.`);
+      if (!aprovacao) logEvento("acesso_criado", `${email} adicionado ao time ${t.nome} (Microsoft)`);
+      await load();
     }
 
     // ---------- Inicialização ----------
@@ -658,7 +828,7 @@
       const box = el("div", "notice");
       box.append(text + " ");
       const a = el("a", null, "Ir para o login");
-      a.href = "/admin/login";
+      a.href = BASE + "/admin/login";
       box.append(a);
       $("#app").replaceChildren(box);
     }
@@ -669,19 +839,24 @@
       try { await navigator.clipboard.writeText($("#secret").textContent); toast("Copiado."); } catch { toast("Não foi possível copiar.", true); }
     };
     $("#btn-new").onclick = () => openTeamDialog(null);
+    $("#people-close").onclick = () => $("#dlg-people").close();
+    $("#people-add").onclick = () => { const t = state.teams.find((x) => x.slug === peopleSlug); $("#dlg-people").close(); if (t) openMemberDialog(t); };
+    // clique no fundo escurecido fecha o diálogo
+    $("#dlg-people").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
     // Sair: mesmo efeito do botão do painel (descarta o token local)
-    $("#logout").onclick = () => { localStorage.removeItem("jwt"); location.href = "/admin/login"; };
+    $("#logout").onclick = () => { localStorage.removeItem("jwt"); location.href = BASE + "/admin/login"; };
 
     const status = requireAdmin();
     if (status === "ok") {
       $("#btn-new").hidden = false;
-      load().catch((e) => { toast(e.message, true); notice(e.message); });
+      // times-tabs.js espera por esta promessa antes de usar state.teams (ex.: aba Pedidos aberta direto)
+      window.spLoading = load().catch((e) => { toast(e.message, true); notice(e.message); });
     } else if (status === "sem-admin") {
       notice("Só administradores gerenciam times.");
     } else {
       notice(status === "expirada" ? "Sua sessão expirou." : "Entre no Admin para gerenciar times.");
     }
   </script>
-  <script src="/admin/times/times-tabs.js"></script>
+  <script src="times/times-tabs.js"></script>
 </body>
 </html>

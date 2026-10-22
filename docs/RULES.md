@@ -32,3 +32,6 @@
 17. Testes E2E criam só recursos com prefixo `zz-` / `zz.` e limpam tudo (inclusive da lixeira).
 18. Mudou comportamento? Atualize ARCHITECTURE/README no mesmo commit. Aprendeu algo? MEMORY no mesmo commit.
 19. Commits: conventional commits em português, **sem linha de coautoria**.
+20. **Nada de caminho absoluto fixo no front-end** (`/admin`, `/_pastas`…): o app pode rodar sob um prefixo (`SP_BASE`). Derive da URL, use caminho relativo ou o marcador `__SP_BASE__`.
+21. **Entra ID: o servidor valida tudo.** O sp-auth confere assinatura, emissor, audiência, tenant, validade e uso único do ID token; nunca confiar em e-mail ou nome vindos do navegador. Contas de e-mail entram pela Microsoft, **inclusive admin** (quem é promovido não pode ficar trancado); o `admin` local (sem `@`) e a conta técnica `sp-svc` só entram por senha. Nenhuma senha de membro fica gravada (troca a cada login). `ENTRA_JWKS_FILE` é só de teste.
+22. Endpoints públicos que criam algo no sp-auth (`/login`, `/solicitar`) ficam atrás do limite `entra` no NGINX (por IP) e com corpo ≤ 16 KB; a fila de pedidos tem teto (500). As rotas com sessão (`/me`, `/pedidos`, `/nomes`, `/usage`) **não** levam limite por IP: atrás de um proxy o IP pode ser compartilhado.

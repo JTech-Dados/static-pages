@@ -18,6 +18,7 @@ FROM filebrowser/filebrowser:${FILEBROWSER_VERSION} AS fb-bin
 # ============================================================
 FROM nginx:${NGINX_VERSION}
 
+# nodejs   : sp-auth (ponte do login Microsoft; sem dependências npm)
 # bash     : entrypoint
 # su-exec  : roda o File Browser como "nginx" (ver conf/entrypoint.sh)
 # tini     : PID 1 — repassa sinais e recolhe zumbis
@@ -25,7 +26,7 @@ FROM nginx:${NGINX_VERSION}
 # inspeção SSL quebram o https). Os pacotes continuam com a
 # assinatura verificada pelo apk. Na VPS deixe false.
 ARG APK_HTTP=false
-RUN if [ "$APK_HTTP" = "true" ]; then sed -i 's#https://#http://#' /etc/apk/repositories; fi  && apk add --no-cache bash su-exec tini
+RUN if [ "$APK_HTTP" = "true" ]; then sed -i 's#https://#http://#' /etc/apk/repositories; fi  && apk add --no-cache bash su-exec tini nodejs
 
 # Na v2.32 o binário fica em /filebrowser (em versões mais novas: /bin/filebrowser)
 COPY --from=fb-bin /filebrowser /usr/local/bin/filebrowser
@@ -38,6 +39,8 @@ COPY conf/nginx/default.conf   /etc/nginx/conf.d/default.conf
 COPY conf/nginx/snippets/      /etc/nginx/snippets/
 COPY conf/branding/            /branding/
 COPY conf/times/               /usr/share/static-pages/times/
+COPY conf/entra/sp-auth.js     /usr/local/lib/sp-auth.js
+COPY conf/guia/                /usr/share/static-pages/guia/
 # o NGINX (workers como "nginx") lê o auditoria.log em /database
 RUN chmod 755 /database
 # CRLF (checkout no Windows) quebra o bash: normaliza por garantia
@@ -58,11 +61,24 @@ RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /usr/local/bin/sp-autoria /usr
 #                       do banco).
 # SITE_SANDBOX       -> "true" isola o site estático do /admin
 #                       (ver conf/nginx/default.conf).
+# SP_BASE            -> prefixo público atrás de um proxy (ex.: /pages).
+#                       Vazio = app na raiz. O File Browser fica em
+#                       $SP_BASE/admin.
+# SITE_NOINDEX       -> "true" manda X-Robots-Tag: noindex (fora de buscadores).
+# ENTRA_TENANT_ID /
+# ENTRA_CLIENT_ID    -> login Microsoft (vazios = desligado).
+# ENTRA_REDIRECT_URI -> Redirect URI do app Entra; vazio = <prefixo>/admin/entra/retorno.
+# TEAM_QUOTA_MB      -> cota padrão por time (bloqueia upload acima dela).
 # ============================================================
 ENV FB_ADMIN_USER=admin \
-    FB_BASEURL=/admin \
     FB_BRANDING_NAME="Static Pages" \
-    SITE_SANDBOX=true
+    SITE_SANDBOX=true \
+    SITE_NOINDEX=false \
+    SP_BASE="" \
+    ENTRA_TENANT_ID="" \
+    ENTRA_CLIENT_ID="" \
+    ENTRA_REDIRECT_URI="" \
+    TEAM_QUOTA_MB=200
 
 
 VOLUME ["/srv", "/database"]
@@ -71,7 +87,7 @@ EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://127.0.0.1/healthz >/dev/null \
-   && wget -qO- "http://127.0.0.1${FB_BASEURL}/" >/dev/null \
+   && wget -qO- "http://127.0.0.1${SP_BASE}/admin/" >/dev/null \
    || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/entrypoint.sh"]

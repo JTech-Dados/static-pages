@@ -9,3 +9,6 @@ divulgacao/*.pdf
 divulgacao/*.html
 backups/
 .claude/settings.local.json
+__pycache__/
+*.pyc
+.pytest_cache/

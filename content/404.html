@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>404 — Página não encontrada</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <!-- __SP_BASE__ vira o prefixo público (ex.: /pages) pelo NGINX; a página é servida em qualquer profundidade de URL -->
+  <link rel="icon" href="__SP_BASE__/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
@@ -44,7 +45,7 @@
     <div class="code">404</div>
     <div>
       <p>Esta página não foi encontrada.</p>
-      <a href="/">Voltar ao início</a>
+      <a href="__SP_BASE__/">Voltar ao início</a>
     </div>
   </main>
 </body>

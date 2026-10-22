@@ -5,6 +5,9 @@
 # - Popula /srv com /seed se não houver index.html
 # - Corrige dono de /srv e /database (só o que precisa)
 # - Gera snippet de isolamento (CSP sandbox) do site
+# - Gera snippet do prefixo público (SP_BASE, ex.: /pages)
+# - Cria a conta técnica sp-svc (senha aleatória a cada boot) e sobe o
+#   sp-auth, a ponte do login Microsoft
 # - Inicializa banco do File Browser + usuário admin
 # - Sincroniza a senha do admin com FB_ADMIN_PASSWORD (se definida)
 # - Aplica baseURL e branding
@@ -22,12 +25,20 @@ log() { echo "[startup] $*"; }
 
 DB=/database/filebrowser.db
 ADMIN_USER="${FB_ADMIN_USER:-admin}"
-BASEURL="${FB_BASEURL:-/admin}"
+# Prefixo público do app atrás do proxy (vazio = raiz). Sem barra final.
+SP_BASE="${SP_BASE:-}"
+SP_BASE="${SP_BASE%/}"
+if [ -n "$SP_BASE" ] && ! printf '%s' "$SP_BASE" | grep -Eq '^(/[A-Za-z0-9_-]+)+$'; then
+    echo "[startup] SP_BASE inválido: '$SP_BASE' (use algo como /pages, só letras, números, _ e -)" >&2
+    exit 1
+fi
+BASEURL="${SP_BASE}/admin"
 BRANDING="${FB_BRANDING_NAME:-Static Pages}"
 FB=(su-exec nginx:nginx filebrowser -d "$DB")
 
 log "Inicializando container..."
 log "Usuário administrativo: $ADMIN_USER"
+log "Prefixo público: ${SP_BASE:-<raiz>}"
 log "Base URL do File Browser: $BASEURL"
 
 
@@ -69,6 +80,30 @@ if [ "${SITE_SANDBOX:-true}" = "true" ]; then
 else
     log "ATENÇÃO: SITE_SANDBOX=false: site estático NÃO isolado do /admin."
     : > "$SNIPPET"
+fi
+
+
+# ------------------------------------------------------------
+# Prefixo público
+#
+# Um proxy pode publicar o app em /<SP_BASE>/ sem reescrever
+# nada. Aqui o NGINX recebe a URI completa, guarda o prefixo em
+# $sp_base e o remove antes de escolher o location (ver
+# conf/nginx/default.conf). Vazio = app na raiz.
+# ------------------------------------------------------------
+{
+    echo "set \$sp_base \"$SP_BASE\";"
+    if [ -n "$SP_BASE" ]; then
+        echo "rewrite ^${SP_BASE}(/.*)\$ \$1;"
+        echo "location = ${SP_BASE} { return 301 ${SP_BASE}/; }"
+    fi
+} > /etc/nginx/snippets/base.conf
+
+# SITE_NOINDEX=true => X-Robots-Tag: noindex em tudo (conteúdo interno, fora de buscadores)
+if [ "${SITE_NOINDEX:-false}" = "true" ]; then
+    echo 'add_header X-Robots-Tag "noindex, nofollow" always;' > /etc/nginx/snippets/noindex.conf
+else
+    : > /etc/nginx/snippets/noindex.conf
 fi
 
 
@@ -125,6 +160,20 @@ log "Aplicando baseURL=$BASEURL, branding e cadastro desligado..."
     --signup=false \
     --shell "sh -c" >/dev/null
 
+# Conta técnica do sp-auth (login Microsoft): admin do File Browser usada só
+# por ele para listar usuários e trocar senhas. Senha nova a cada boot, num
+# arquivo que só o usuário nginx lê (fora de qualquer pasta servida).
+SVC_PASS="$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 32)"
+if "${FB[@]}" users ls 2>/dev/null | awk '{print $2}' | grep -qx sp-svc; then
+    "${FB[@]}" users update sp-svc --password "$SVC_PASS" >/dev/null
+else
+    "${FB[@]}" users add sp-svc "$SVC_PASS" --perm.admin=true >/dev/null
+fi
+mkdir -p /run/sp-auth && chown nginx:nginx /run/sp-auth && chmod 700 /run/sp-auth
+printf 'sp-svc\n%s\n' "$SVC_PASS" > /run/sp-auth/svc
+chown nginx:nginx /run/sp-auth/svc && chmod 600 /run/sp-auth/svc
+unset SVC_PASS
+
 # Hooks (idempotente: só adiciona o que ainda não está registrado)
 #   sp-autoria  -> coluna "Alterado por" + /database/auditoria.log
 #   sp-lixeira  -> copia para /srv/_lixeira antes de apagar
@@ -176,11 +225,22 @@ log "Iniciando File Browser em 127.0.0.1:8080 (usuário nginx)..."
 "${FB[@]}" -r /srv -p 8080 -a 127.0.0.1 &
 FB_PID=$!
 
+# sp-auth: se cair, volta sozinho (o site e o painel não dependem dele)
+(
+    while true; do
+        su-exec nginx:nginx node /usr/local/lib/sp-auth.js || true
+        sleep 2
+    done
+) &
+SPAUTH_LOOP=$!
+
 log "Iniciando NGINX em 0.0.0.0:80..."
 nginx -g 'daemon off;' &
 NGINX_PID=$!
 
 shutdown() {
+    kill -TERM "$SPAUTH_LOOP" 2>/dev/null || true
+    pkill -TERM -f sp-auth.js 2>/dev/null || true
     kill -TERM "$FB_PID" "$NGINX_PID" 2>/dev/null || true
     wait "$FB_PID" "$NGINX_PID" 2>/dev/null || true
 }
@@ -192,7 +252,7 @@ on_signal() {
 }
 trap on_signal TERM INT
 
-log "Pronto. Site: /   File Browser: $BASEURL/"
+log "Pronto. Site: ${SP_BASE}/   File Browser: $BASEURL/"
 
 code=0
 wait -n "$FB_PID" "$NGINX_PID" || code=$?

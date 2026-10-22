@@ -23,12 +23,21 @@ jobs:
         run: |
           for f in conf/*.sh; do bash -n "$f" && echo "ok: $f"; done
 
+      - name: Testes unitários do sp-auth (login Microsoft)
+        run: |
+          for f in conf/entra/sp-auth.js conf/times/entra-login.js conf/times/inject.js conf/times/times-tabs.js; do node --check "$f" && echo "ok: $f"; done
+          node --test --test-force-exit tests/sp-auth.test.js
+
       - name: Cria .env de teste
         run: |
           cp .env.example .env
           SENHA="ci-$(openssl rand -hex 12)"
           sed -i "s/^FB_ADMIN_PASSWORD=.*/FB_ADMIN_PASSWORD=$SENHA/" .env
           sed -i "s/^HTTP_BIND=.*/HTTP_BIND=127.0.0.1/" .env
+          # Entra de teste: IDs fictícios; as chaves vêm de um arquivo gerado pelos testes (ENTRA_JWKS_FILE)
+          sed -i "s/^ENTRA_TENANT_ID=.*/ENTRA_TENANT_ID=11111111-2222-3333-4444-555555555555/" .env
+          sed -i "s/^ENTRA_CLIENT_ID=.*/ENTRA_CLIENT_ID=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/" .env
+          echo "ENTRA_JWKS_FILE=/tmp/jwks-teste.json" >> .env
           echo "FB_ADMIN_PASSWORD=$SENHA" >> "$GITHUB_ENV"
           echo "::add-mask::$SENHA"
 

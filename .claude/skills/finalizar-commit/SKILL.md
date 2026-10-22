@@ -29,7 +29,8 @@ Liste os arquivos e confirme que só entra o que pertence à mudança.
 
 ```bash
 for f in conf/*.sh; do sed 's/\r$//' "$f" | bash -n || echo "ERRO: $f"; done
-node --check conf/times/times-tabs.js conf/times/inject.js
+for f in conf/entra/sp-auth.js conf/times/entra-login.js conf/times/inject.js conf/times/times-tabs.js; do node --check "$f"; done   # um por vez: o --check só confere o 1º arquivo
+node --test --test-force-exit tests/sp-auth.test.js
 docker compose config -q
 ```
 HTML com `<script>` grande editado por script: extraia e rode `node --check`.

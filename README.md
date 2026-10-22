@@ -63,14 +63,17 @@ O **static-pages** é esse lugar. Quem publica usa o navegador, quem consome rec
 | 🌐 | **Site estático** | qualquer pasta vira página (`/relatorio/` → `relatorio/index.html`); `/pagina` serve `pagina.html` |
 | 🗂️ | **Painel de arquivos** | upload, edição de HTML, renomear e mover em `/admin` (File Browser, em pt-br, com tema próprio) |
 | 🧭 | **Home automática** | cards montados a partir das pastas (até 3 níveis), divididos **por time**, com filtro e contador de visitas |
-| 👥 | **Times** | cada time é uma pasta; membros só enxergam e editam a pasta do seu time |
+| 👥 | **Acessos e times** | cada time é uma pasta; membros só enxergam e editam a pasta do seu time; aba Usuários muda papel e time |
+| 🪪 | **Login Microsoft (Entra ID)** | opcional: membros entram com a conta Microsoft; quem não tem acesso pede e o admin aprova |
+| 📦 | **Cota por time** | espaço do time na barra do menu; upload acima da cota é recusado (413, mensagem em português) |
+| 📖 | **Guia "Como publicar"** | página `/_ajuda/` para quem publica (links relativos, sandbox, cota, visibilidade) |
 | ✍️ | **Autoria** | colunas "Time" e "Alterado por" na listagem do painel |
 | 🗑️ | **Lixeira** | nada apagado some de vez: restaura em 1 clique por 30 dias |
-| 📜 | **Atividade** | histórico de envios, edições e exclusões, com filtros (só admin) |
+| 📜 | **Atividade** | histórico de envios, edições, exclusões e de acessos (logins, pedidos, papéis, cota), com filtros (só admin) |
 | 📈 | **Visitas** | acessos por página e por time nos últimos 30 dias |
 | 💾 | **Backup diário** | `tar.gz` dos dados, mantém os últimos 7 |
 | 🔒 | **Segurança** | site isolado do painel (CSP sandbox), rate limit no login, dotfiles bloqueados, cadastro público desligado |
-| ✅ | **Testes E2E + CI** | 13 testes (pytest + Playwright) a cada push |
+| ✅ | **Testes E2E + CI** | 21 testes E2E (pytest + Playwright) e 15 unitários do login Microsoft a cada push |
 
 ## 🚀 Início rápido
 
@@ -169,7 +172,11 @@ Todas as variáveis ficam em [`.env.example`](.env.example).
 | `FB_ADMIN_USER` | `admin` | usuário criado no 1º boot |
 | `FB_ADMIN_PASSWORD` | *(vazio)* | vazia = gera aleatória; definida = sincronizada a cada boot |
 | `FB_SYNC_ADMIN_PASSWORD` | `true` | `false` mantém a senha trocada pela interface |
-| `FB_BASEURL` | `/admin` | caminho do painel (ajuste também `conf/nginx/default.conf`) |
+| `SP_BASE` | *(vazio)* | prefixo público atrás de um proxy (ex.: `/pages`): site em `/pages/`, painel em `/pages/admin/` |
+| `SITE_NOINDEX` | `false` | `true` manda `X-Robots-Tag: noindex` (conteúdo interno, fora de buscadores) |
+| `ENTRA_TENANT_ID` / `ENTRA_CLIENT_ID` | *(vazios)* | login Microsoft; vazios = desligado. App "SPA" (sem secret) no Entra ID |
+| `ENTRA_REDIRECT_URI` | *(vazio)* | vazio = `https://<domínio>[/prefixo]/admin/entra/retorno` (cadastre no app Entra) |
+| `TEAM_QUOTA_MB` | `200` | cota padrão por time (MB); upload acima dela é recusado |
 | `FB_BRANDING_NAME` | `Static Pages` | nome exibido no painel |
 | `FB_LOCALE` | `pt-br` | idioma de novos usuários |
 | `SITE_SANDBOX` | `true` | isolamento do site (ver Segurança) |
@@ -180,6 +187,16 @@ Todas as variáveis ficam em [`.env.example`](.env.example).
 | `APK_HTTP` | `false` | `true` só em rede com inspeção SSL que quebra o build |
 
 </details>
+
+## 🪪 Login Microsoft (Entra ID)
+
+Opcional e desligado por padrão. Para ligar:
+
+1. No Entra ID, registre um app do tipo **SPA** (sem secret) e anote `Tenant ID` e `Client ID`.
+2. Cadastre o Redirect URI `https://<seu-domínio>[/prefixo]/admin/entra/retorno` (ou o de `ENTRA_REDIRECT_URI`).
+3. Defina `ENTRA_TENANT_ID` e `ENTRA_CLIENT_ID` no `.env` e reinicie.
+
+Membros são usuários do File Browser com o **e-mail como nome de usuário**; quem entra com Microsoft sem cadastro vê "Solicitar acesso" e o admin aprova na aba **Pedidos** (escolhendo o time). O servidor valida o token (assinatura, emissor, audiência, tenant, validade, uso único). O `admin` local continua só com usuário e senha, como contingência. Detalhes em [ARCHITECTURE](docs/ARCHITECTURE.md). Observação: a suíte testa o fluxo com um Entra de teste; valide o login com o seu tenant real ao ligar.
 
 ## 🌍 Deploy na VPS
 
@@ -278,7 +295,7 @@ python -m pytest tests -v                        # usa FB_ADMIN_PASSWORD do .env
 BROWSER_CHANNEL=msedge python -m pytest tests    # usa o Edge instalado
 ```
 
-Os testes cobrem rotas, headers, bloqueios, path traversal, permissões da auditoria, times, membros, colunas, lixeira, atividade, home por time e visitas. Tudo que eles criam usa o prefixo `zz-` e é removido no final, então dá para rodar no servidor real. O [CI](.github/workflows/ci.yml) builda, sobe e roda a suíte a cada push.
+Os testes cobrem login Microsoft (com um Entra de teste), cota, rotas, headers, bloqueios, path traversal, permissões da auditoria, times, membros, colunas, lixeira, atividade, home por time e visitas. Tudo que eles criam usa o prefixo `zz-` e é removido no final, então dá para rodar no servidor real. O [CI](.github/workflows/ci.yml) builda, sobe e roda a suíte a cada push.
 
 ## ❓ FAQ
 
@@ -297,13 +314,13 @@ Por causa do CSP `sandbox`, que impede uma página enviada por upload de roubar 
 <details>
 <summary><b>A cota bloqueia uploads?</b></summary>
 
-Não. Ela só alerta em 80% e 100%, porque o File Browser não tem esse controle.
+Sim. Membros de um time não conseguem enviar acima da cota (o painel recusa com um aviso em português); admins não têm limite. A barra do menu mostra o espaço usado do time.
 </details>
 
 <details>
 <summary><b>Apaguei sem querer. E agora?</b></summary>
 
-Vá em **Times → Lixeira → Restaurar**. Depois de 30 dias o item some de vez, mas ainda existe nos backups diários.
+Vá em **Acessos → Lixeira → Restaurar**. Depois de 30 dias o item some de vez, mas ainda existe nos backups diários.
 </details>
 
 <details>
@@ -318,7 +335,7 @@ Backlog vivo com prioridade e critério de pronto: **[docs/TASKS.md](docs/TASKS.
 
 - [ ] Backup fora da VPS
 - [ ] Imagem publicada no GHCR (deploy sem build)
-- [ ] Login de leitura por time (oauth2-proxy + Entra ID)
+- [ ] Login de leitura por site (Entra ID), com desenho em `specs/`
 - [ ] Painel em subdomínio próprio
 
 ## 🤝 Contribuindo

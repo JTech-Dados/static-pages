@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Static Pages</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -32,6 +32,9 @@
       background: color-mix(in srgb, var(--canvas) 80%, transparent);
       backdrop-filter: saturate(1.8) blur(8px);
     }
+    .acoes { display: flex; align-items: center; gap: 20px; }
+    .link-guia { color: var(--body); font-size: 14px; text-decoration: none; }
+    .link-guia:hover { color: var(--ink); }
     .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.3px; color: inherit; text-decoration: none; }
     .brand img { width: 28px; height: 28px; }
     .btn {
@@ -137,11 +140,12 @@
 </head>
 <body>
   <header>
-    <a class="brand" href="/"><img src="/favicon.svg" alt="">Static Pages</a>
-    <a class="btn" href="/admin/">
+    <a class="brand" href="."><img src="favicon.svg" alt="">Static Pages</a>
+    <nav class="acoes"><a class="link-guia" href="_ajuda/">Como publicar</a>
+    <a class="btn" href="admin/">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       Admin
-    </a>
+    </a></nav>
   </header>
 
   <section class="hero">
@@ -188,6 +192,9 @@
       return node;
     };
 
+    // Prefixo público (ex.: "/pages" atrás de um proxy); vazio na raiz
+    const BASE = location.pathname.replace(/\/(index\.html?)?$/i, "");
+
     const prettify = (name) => name.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     const urlOf = (parts) => (parts.length ? "/" + parts.map(encodeURIComponent).join("/") : "") + "/";
     const byOrder = (a, b) => a.ordem - b.ordem || a.titulo.localeCompare(b.titulo, "pt-BR");
@@ -196,7 +203,7 @@
     const INDEX_NAMES = new Set(["index.html", "index.htm", "Index.html", "Index.htm", "INDEX.html", "INDEX.HTML", "INDEX.HTM"]);
 
     async function listDir(parts) {
-      const r = await fetch("/_pastas" + urlOf(parts), { cache: "no-cache" });
+      const r = await fetch(BASE + "/_pastas" + urlOf(parts), { cache: "no-cache" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const entries = await r.json();
       return {
@@ -207,7 +214,7 @@
 
     async function loadMeta(parts) {
       try {
-        const r = await fetch(urlOf(parts) + "meta.json", { cache: "no-cache" });
+        const r = await fetch(BASE + urlOf(parts) + "meta.json", { cache: "no-cache" });
         if (!r.ok || r.status === 204) return {};
         const data = await r.json();
         return data && typeof data === "object" ? data : {};
@@ -273,7 +280,7 @@
       const title = el("div", "title");
       if (item.href) {
         const a = el("a", null, item.titulo);
-        a.href = item.href;
+        a.href = BASE + item.href;
         title.append(a);
       } else {
         title.textContent = item.titulo;
@@ -289,7 +296,7 @@
         for (const s of subs) {
           const li = el("li");
           const a = el("a");
-          a.href = s.href;
+          a.href = BASE + s.href;
           if (s.trail.length) a.append(el("span", "trail", s.trail.join(" › ") + " ›"));
           a.append(s.titulo);
           li.append(a);
@@ -313,7 +320,7 @@
     // Time de uma pasta de 1º nível: /<pasta>/.time.json (público, só nome)
     async function loadTeam(name) {
       try {
-        const r = await fetch(`/${encodeURIComponent(name)}/.time.json`, { cache: "no-cache" });
+        const r = await fetch(`${BASE}/${encodeURIComponent(name)}/.time.json`, { cache: "no-cache" });
         if (!r.ok || r.status === 204) return null;
         const data = await r.json();
         return data && typeof data.nome === "string" && data.nome.trim() ? data.nome.trim() : name;
@@ -387,7 +394,7 @@
       try {
         const [{ dirs: top }, v] = await Promise.all([
           listDir([]),
-          fetch("/_visitas.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+          fetch(BASE + "/_visitas.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
         ]);
         visits = (v && v.paginas) || {};
         const scanned = await Promise.all(top.map(async (d) => {
