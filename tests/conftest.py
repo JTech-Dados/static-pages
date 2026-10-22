@@ -66,10 +66,10 @@ class Api:
     def users(self):
         return self.req("GET", "/users").json()
 
-    def add_user(self, username, password, scope):
+    def add_user(self, username, password, scope, leitor=False):
         data = {"username": username, "password": password, "scope": scope, "locale": "pt-br", "lockPassword": False,
-                "perm": {"admin": False, "execute": False, "create": True, "rename": True, "modify": True,
-                         "delete": True, "share": False, "download": True},
+                "perm": {"admin": False, "execute": False, "create": not leitor, "rename": not leitor, "modify": not leitor,
+                         "delete": not leitor, "share": False, "download": True},
                 "commands": [], "rules": [], "hideDotfiles": True, "viewMode": "list"}
         return self.req("POST", "/users", json={"what": "user", "which": [], "data": data})
 

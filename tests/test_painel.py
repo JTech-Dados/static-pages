@@ -200,3 +200,39 @@ def test_cota_do_time_bloqueia_upload_e_registra_acoes(page, admin, uid):
     # o histórico (aba Atividade) registra o envio recusado
     log = admin.req("GET", "/../_auditoria") if False else requests.get(f"{BASE}/admin/_auditoria", headers=admin.h, timeout=10)
     assert "acesso_cota" in log.text and pessoa in log.text
+
+
+def test_leitor_so_consulta_e_baixa(page, admin, uid):
+    slug, nome, pessoa, senha = f"zz-leit-{uid}", f"Time Leitor {uid}", f"zz.leitor{uid}", "SenhaTeste123456"
+    admin.mkdir(f"/{slug}")
+    admin.write(f"/{slug}/.time.json", json.dumps({"nome": nome}))
+    admin.write(f"/{slug}/index.html", "<h1>time</h1>")
+    admin.write(f"/{slug}/fora.txt", "so o admin mexe")
+    assert admin.add_user(pessoa, senha, f"/{slug}", leitor=True).ok
+    leitor = Api(pessoa, senha)
+
+    # consulta e baixa
+    nomes = [i["name"] for i in leitor.req("GET", "/resources/").json()["items"]]
+    assert "index.html" in nomes and "fora.txt" in nomes
+    assert leitor.req("GET", "/raw/fora.txt").text == "so o admin mexe"
+    # nada de escrever, renomear nem apagar (o File Browser responde 403)
+    assert leitor.req("POST", "/resources/novo.txt?override=true", data=b"x").status_code == 403
+    assert leitor.req("PUT", "/resources/fora.txt", data=b"alterado").status_code == 403
+    assert leitor.req("PATCH", "/resources/fora.txt?action=rename&destination=/outro.txt&override=false").status_code == 403
+    assert leitor.req("DELETE", "/resources/fora.txt").status_code == 403
+    assert leitor.req("POST", "/resources/pasta-nova/").status_code == 403
+    # e o upload pelo tus (o que a interface usa) também
+    assert leitor.req("POST", "/tus/tus.bin?override=false", headers={"Tus-Resumable": "1.0.0"}).status_code == 403
+    # nada mudou
+    assert admin.req("GET", f"/raw/{slug}/fora.txt").text == "so o admin mexe"
+    nomes = [i["name"] for i in admin.req("GET", f"/resources/{slug}/").json()["items"]]
+    assert "novo.txt" not in nomes and "pasta-nova" not in nomes and "outro.txt" not in nomes and "tus.bin" not in nomes
+    # continua preso à pasta do time e sem acesso a admin
+    assert leitor.req("GET", "/users").status_code == 403
+    assert leitor.req("GET", f"/resources/{slug}/").status_code in (403, 404)
+
+    # a barra superior mostra o papel
+    login_token(page, leitor.token)
+    expect(page.locator("[data-sp-chip] .sp-chip-role")).to_have_text("Leitor", timeout=15000)
+    expect(page.locator("[data-sp-chip] .sp-chip-team")).to_have_text(nome)
+    assert page.errors == []

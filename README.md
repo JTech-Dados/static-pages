@@ -73,7 +73,7 @@ O **static-pages** é esse lugar. Quem publica usa o navegador, quem consome rec
 | 📈 | **Visitas** | acessos por página e por time nos últimos 30 dias |
 | 💾 | **Backup diário** | `tar.gz` dos dados, mantém os últimos 7 |
 | 🔒 | **Segurança** | site isolado do painel (CSP sandbox), rate limit no login, dotfiles bloqueados, cadastro público desligado |
-| ✅ | **Testes E2E + CI** | 21 testes E2E (pytest + Playwright) e 15 unitários do login Microsoft a cada push |
+| ✅ | **Testes E2E + CI** | 22 testes E2E (pytest + Playwright) e 15 unitários do login Microsoft a cada push |
 
 ## 🚀 Início rápido
 
