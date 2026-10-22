@@ -4,7 +4,8 @@ README.md
 .env
 .env.*
 subir.bat
-docker-compose.yml
+docker-compose*.yml
+Dockerfile.backup
 .gitignore
 .gitattributes
 .dockerignore

@@ -188,6 +188,10 @@ Todas as variáveis ficam em [`.env.example`](.env.example).
 
 </details>
 
+## 🐳 Variante para Portainer / GitOps
+
+Orquestradores que clonam o repo e não têm o `.env` nem bind mount de arquivo (Portainer, por exemplo) usam o [`docker-compose.portainer.yml`](docker-compose.portainer.yml): variáveis por `environment:` (cadastre-as na stack), backup com imagem própria ([`Dockerfile.backup`](Dockerfile.backup)), rede fixa `static-pages-net` para um proxy na mesma máquina e nenhuma porta no host. Para testar localmente: `docker compose -f docker-compose.portainer.yml -f docker-compose.portainer.local.yml up -d --build`.
+
 ## 🪪 Login Microsoft (Entra ID)
 
 Opcional e desligado por padrão. Para ligar:

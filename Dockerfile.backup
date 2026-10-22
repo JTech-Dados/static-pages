@@ -1,0 +1,7 @@
+# Imagem do serviço de backup: leva o backup.sh dentro (COPY), porque
+# orquestradores GitOps (Portainer, por exemplo) não materializam bind mount de arquivo.
+FROM alpine:3.21
+COPY conf/backup.sh /usr/local/bin/backup.sh
+# CRLF (checkout no Windows) quebra o sh: normaliza por garantia
+RUN sed -i 's/\r$//' /usr/local/bin/backup.sh
+CMD ["sh", "/usr/local/bin/backup.sh"]

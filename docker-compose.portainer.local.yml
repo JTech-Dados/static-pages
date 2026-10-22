@@ -1,0 +1,10 @@
+# Só para testar a variante GitOps na máquina do desenvolvedor: publica a porta no host.
+#   docker compose -f docker-compose.portainer.yml -f docker-compose.portainer.local.yml up -d --build
+# Site: http://localhost:8080/   Admin: http://localhost:8080/admin/  (com SP_BASE=/pages: …/pages/…)
+services:
+  app:
+    environment:
+      # SÓ TESTES: chaves do Entra lidas deste arquivo (os testes E2E geram o arquivo)
+      ENTRA_JWKS_FILE: ${ENTRA_JWKS_FILE:-}
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80"

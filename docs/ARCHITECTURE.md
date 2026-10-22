@@ -43,6 +43,8 @@ Atrás de um proxy que publica o app num caminho (ex.: `/pages/`) sem reescrever
 | Caminho no repo | Vai para | Papel |
 |---|---|---|
 | `Dockerfile` | imagem | nginx + filebrowser + tini + node (sp-auth); copia `conf/`; remove CRLF dos scripts |
+| `Dockerfile.backup` | imagem do backup | alpine + `backup.sh` (COPY, para orquestradores GitOps que não materializam bind mount de arquivo) |
+| `docker-compose.portainer.yml` (+ `.local.yml`) | variante GitOps | sem bind mount, sem `env_file`, sem `image:`, sem porta no host, rede fixa `static-pages-net`, backup em volume nomeado; o `.local.yml` só publica a porta para teste |
 | `conf/entrypoint.sh` | `/usr/local/bin/entrypoint.sh` | seed de `/srv`, admin, `base.conf` (prefixo), branding, `--signup=false`, hooks, laços |
 | `conf/nginx/default.conf` + `snippets/` | `/etc/nginx/` | rotas, segurança, CORS, auth_request, log de visitas |
 | `conf/sp-autoria.sh` | hook `after_*` | grava `<pasta>/.autoria` e `/database/auditoria.log` |
