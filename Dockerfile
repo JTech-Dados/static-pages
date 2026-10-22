@@ -35,6 +35,7 @@ RUN mkdir -p /srv /seed /database /etc/nginx/snippets \
  && chown -R nginx:nginx /srv /database
 
 COPY content/                       /seed/
+COPY content/index.html content/404.html content/favicon.svg /usr/share/static-pages/home/
 COPY conf/nginx/default.conf   /etc/nginx/conf.d/default.conf
 COPY conf/nginx/snippets/      /etc/nginx/snippets/
 COPY conf/branding/            /branding/
@@ -64,6 +65,8 @@ RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /usr/local/bin/sp-autoria /usr
 # SP_BASE            -> prefixo público atrás de um proxy (ex.: /pages).
 #                       Vazio = app na raiz. O File Browser fica em
 #                       $SP_BASE/admin.
+# HOME_FROM_SRV      -> "true" serve home, 404 e favicon do /srv (editáveis pelo painel);
+#                       padrão false: vêm da imagem e cada deploy os atualiza.
 # SITE_NOINDEX       -> "true" manda X-Robots-Tag: noindex (fora de buscadores).
 # ENTRA_TENANT_ID /
 # ENTRA_CLIENT_ID    -> login Microsoft (vazios = desligado).
@@ -74,6 +77,7 @@ ENV FB_ADMIN_USER=admin \
     FB_BRANDING_NAME="Static Pages" \
     SITE_SANDBOX=true \
     SITE_NOINDEX=false \
+    HOME_FROM_SRV=false \
     SP_BASE="" \
     ENTRA_TENANT_ID="" \
     ENTRA_CLIENT_ID="" \

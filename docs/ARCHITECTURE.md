@@ -59,9 +59,10 @@ Atrás de um proxy que publica o app num caminho (ex.: `/pages/`) sem reescrever
 | `conf/times/inject.js` | injetado no `/admin` (sub_filter) | item "Acessos" no menu (com o contador de pedidos), colunas Time/Alterado por e, na barra superior, quem está logado + time + papel (Admin/Editor) + aviso de pedidos pendentes (admin) |
 | `conf/times/modelo-time.html` | `/admin/times/…` | `index.html` inicial de time novo |
 | `conf/guia/` | `/_ajuda/` | guia "Como publicar" (página estática da imagem) |
-| `content/` | **seed** de `/srv` | home, 404 e favicon — só copiados se `/srv/index.html` não existir |
+| `content/index.html`, `404.html`, `favicon.svg` | `/usr/share/static-pages/home/` (imagem) | home, 404 e favicon, **servidos pela imagem**: cada deploy os atualiza; um `/srv/index.html` antigo fica sem efeito. Com `HOME_FROM_SRV=true` são semeados e servidos do `/srv` (`snippets/home-root.conf`, gerado no boot) |
+| `content/` (o resto, ex.: `robots.txt`) | **seed** de `/srv` | só copiado se ainda não existir em `/srv` |
 
-> ⚠️ `content/` é **seed**: editar `content/index.html` não muda um servidor que já tem `/srv/index.html`. Publique pelo painel ou `docker cp`.
+> A home, a 404 e o favicon não vêm do `/srv` (salvo `HOME_FROM_SRV=true`): para mudar, edite `content/` e reimplante a imagem. Só o resto de `content/` é semente do `/srv`.
 
 ## Rotas do NGINX
 

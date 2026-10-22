@@ -20,7 +20,7 @@
 
 ## Operação
 
-11. **Não sobrescrever conteúdo do usuário**: seed só em `/srv` vazio; modelo de time com `override=false`; restaurar com `rename=true`.
+11. **Não sobrescrever conteúdo do usuário**: seed só do que ainda não existe em `/srv` (home, 404 e favicon vêm da imagem, salvo `HOME_FROM_SRV=true`); modelo de time com `override=false`; restaurar com `rename=true`.
 12. Nada apagado pelo painel pode sumir sem passar pela lixeira (hook `before_delete`).
 13. **Não atualizar a VPS com o CI vermelho.**
 14. Versões de imagem **fixadas** (nada de `latest`). Atualizar File Browser exige rever `inject.js` e `custom.css` (seletores e caminho do binário mudam entre versões).

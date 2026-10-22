@@ -33,8 +33,7 @@ BROWSER_PATH=/caminho/chromium python -m pytest tests   # com um Chromium já in
 docker compose exec app sp-visitas                # força a agregação de visitas
 ```
 
-Arquivos em `content/` só entram num `/srv` vazio. Para testar uma mudança na home localmente:
-`docker cp content/index.html static-pages:/srv/index.html`.
+`content/index.html`, `404.html` e `favicon.svg` são servidos **pela imagem** (não pelo `/srv`): mudou a home? Rebuilde a imagem (`docker compose up -d --build`). O resto de `content/` (ex.: `robots.txt`) é só semente de um `/srv` vazio. Com `HOME_FROM_SRV=true` a home volta a vir do `/srv` (editável pelo painel).
 
 ## Commits
 

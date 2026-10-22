@@ -185,6 +185,7 @@ Todas as variáveis ficam em [`.env.example`](.env.example).
 | `FB_ADMIN_PASSWORD` | *(vazio)* | vazia = gera aleatória; definida = sincronizada a cada boot |
 | `FB_SYNC_ADMIN_PASSWORD` | `true` | `false` mantém a senha trocada pela interface |
 | `SP_BASE` | *(vazio)* | prefixo público atrás de um proxy (ex.: `/pages`): site em `/pages/`, painel em `/pages/admin/` |
+| `HOME_FROM_SRV` | `false` | `true` serve home, 404 e favicon do `/srv` (editáveis pelo painel); padrão: vêm da imagem |
 | `SITE_NOINDEX` | `false` | `true` manda `X-Robots-Tag: noindex` (conteúdo interno, fora de buscadores) |
 | `ENTRA_TENANT_ID` / `ENTRA_CLIENT_ID` | *(vazios)* | login Microsoft; vazios = desligado. App "SPA" (sem secret) no Entra ID |
 | `ENTRA_REDIRECT_URI` | *(vazio)* | vazio = `https://<domínio>[/prefixo]/admin/entra/retorno` (cadastre no app Entra) |
@@ -301,7 +302,7 @@ O banco do File Browser é copiado com o app rodando. Para um backup 100% consis
 
 </details>
 
-> `content/` é a **semente** do `/srv`: só é copiada quando o volume está vazio. Num servidor em uso, publique pelo painel.
+> A home, a 404 e o favicon (`content/index.html`, `404.html`, `favicon.svg`) são servidos **pela imagem**: para mudar, edite `content/` e reimplante. Quer editá-los pelo painel? Use `HOME_FROM_SRV=true`. O resto de `content/` é semente do `/srv`.
 
 ## ✅ Testes e CI
 
@@ -342,7 +343,7 @@ Vá em **Acessos → Lixeira → Restaurar**. Depois de 30 dias o item some de v
 <details>
 <summary><b>Editei <code>content/index.html</code> e a home não mudou.</b></summary>
 
-`content/` só semeia um `/srv` vazio. Publique pelo painel ou rode `docker cp content/index.html static-pages:/srv/index.html`.
+A home vem da imagem: reimplante (`docker compose up -d --build`). Se preferir editar pelo painel, defina `HOME_FROM_SRV=true` e envie o `index.html` para a raiz.
 </details>
 
 ## 🗺️ Roadmap

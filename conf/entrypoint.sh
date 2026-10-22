@@ -2,7 +2,7 @@
 # ============================================================
 # Startup
 #
-# - Popula /srv com /seed se não houver index.html
+# - Popula /srv com /seed (home, 404 e favicon só com HOME_FROM_SRV=true)
 # - Corrige dono de /srv e /database (só o que precisa)
 # - Gera snippet de isolamento (CSP sandbox) do site
 # - Gera snippet do prefixo público (SP_BASE, ex.: /pages)
@@ -45,15 +45,21 @@ log "Base URL do File Browser: $BASEURL"
 # ------------------------------------------------------------
 # /srv
 # ------------------------------------------------------------
-if [ ! -f /srv/index.html ]; then
-    log "/srv/index.html não encontrado. Copiando /seed (sem sobrescrever)..."
+# index.html, 404.html e favicon.svg NÃO são semeados: por padrão o NGINX os serve da
+# imagem (/usr/share/static-pages/home), então cada deploy os atualiza. Com
+# HOME_FROM_SRV=true eles são semeados e servidos do /srv (editáveis pelo painel).
+# O resto de /seed (ex.: robots.txt) só entra se ainda não existir em /srv.
+for f in /seed/* /seed/.[!.]*; do
+    [ -e "$f" ] || continue
+    case "$(basename "$f")" in index.html|404.html|favicon.svg) [ "${HOME_FROM_SRV:-false}" = "true" ] || continue ;; esac
     # loop explícito: o "cp -n" do busybox não é confiável aqui
-    for f in /seed/* /seed/.[!.]*; do
-        [ -e "$f" ] || continue
-        [ -e "/srv/$(basename "$f")" ] || cp -r "$f" /srv/
-    done
+    [ -e "/srv/$(basename "$f")" ] || cp -r "$f" /srv/
+done
+if [ "${HOME_FROM_SRV:-false}" = "true" ]; then
+    echo 'root /srv;' > /etc/nginx/snippets/home-root.conf
+    log "Home, 404 e favicon: servidos do /srv (HOME_FROM_SRV=true)"
 else
-    log "/srv/index.html já existe. Mantendo conteúdo atual."
+    echo 'root /usr/share/static-pages/home;' > /etc/nginx/snippets/home-root.conf
 fi
 
 log "Ajustando dono apenas de arquivos fora de nginx:nginx..."

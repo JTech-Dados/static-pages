@@ -1,4 +1,6 @@
 """Site público, NGINX e regras de segurança."""
+import uuid
+
 import requests
 
 from conftest import BASE, BASE_PATH
@@ -76,3 +78,23 @@ def test_auditoria_so_para_admin(admin, uid):
     from conftest import Api
     membro = Api(user, pw)
     assert get("/admin/_auditoria", headers={"X-Auth": membro.token}).status_code == 403
+
+
+def test_home_404_e_favicon_vem_da_imagem(admin):
+    """A home não depende do /srv/index.html (que pode ser a cópia antiga do 1º deploy)."""
+    home = requests.get(f"{BASE}/", timeout=10)
+    assert home.status_code == 200 and "Static Pages" in home.text
+    assert "organizadas por time" not in home.text
+    assert requests.get(f"{BASE}/index.html", timeout=10).text == home.text
+    assert requests.get(f"{BASE}/favicon.svg", timeout=10).status_code == 200
+    ruim = requests.get(f"{BASE}/nao-existe-{uuid.uuid4().hex[:6]}/", timeout=10)
+    assert ruim.status_code == 404 and "__SP_BASE__" not in ruim.text
+
+    # um /srv/index.html diferente (como o do servidor antigo) não muda a home
+    antigo = admin.req("GET", "/raw/index.html")
+    admin.write("/index.html", "<h1>copia antiga</h1>")
+    try:
+        assert "copia antiga" not in requests.get(f"{BASE}/", timeout=10).text
+    finally:
+        admin.write("/index.html", antigo.text if antigo.ok else "<h1>x</h1>")
+
