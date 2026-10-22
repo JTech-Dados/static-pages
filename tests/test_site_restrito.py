@@ -251,7 +251,7 @@ def test_tela_acesso_restrito_do_editor_e_do_admin(admin, uid, page, browser):
     item.click()
     page.wait_for_url("**/admin/times/restrito.html")
     expect(page.locator("#painel")).to_be_visible(timeout=15000)
-    expect(page.locator("#time-nome")).to_have_text("Time da Tela")
+    expect(page.locator("#alvo-texto")).to_contain_text("Time da Tela")
     assert page.locator("#linha-time:visible").count() == 0            # editor não escolhe time
     page.fill("#emails", f"Convidada{uid}@exemplo.com\nsegunda{uid}@exemplo.com")
     page.check("#ativo")
@@ -287,3 +287,47 @@ def test_tela_acesso_restrito_do_editor_e_do_admin(admin, uid, page, browser):
     expect(ap.locator("#time")).to_have_value(slug, timeout=15000)
     expect(ap.locator("#ativo")).to_be_checked()
     ap.close()
+
+
+def test_pagina_restrita_com_espaco_no_nome_e_time_publico(admin, uid, idp):  # noqa: F811
+    """Restrição por página (pasta do 1º nível): o time e as outras páginas seguem públicos; nome com espaço e acento entra."""
+    slug = f"zz-pag-{uid}"
+    pg = "Teste Cockpit Cirúrgico"
+    admin.mkdir(f"/{slug}")
+    admin.write(f"/{slug}/.time.json", json.dumps({"nome": "Time Pag"}))
+    admin.write(f"/{slug}/index.html", "<h1>time</h1>")
+    admin.mkdir(f"/{slug}/{pg}")
+    admin.write(f"/{slug}/{pg}/index.html", "<h1>cockpit restrito</h1>")
+    admin.write(f"/{slug}/{pg}/dados.json", '{"x":1}')
+    admin.write(f"/{slug}/outra/index.html", "<h1>outra publica</h1>")
+    pessoa = f"zz.convidada{uid}@exemplo.com"
+
+    r = requests.put(f"{ENTRA}/site/acesso", json={"time": slug, "pagina": pg, "ativo": True, "emails": [pessoa]}, headers=admin.h, timeout=10)
+    assert r.status_code == 200 and r.json()["paginas"] == [pg], r.text
+
+    # a página pede login; o time e a outra página seguem públicos
+    caminho = f"/{slug}/{pg}/"
+    sem = get(caminho)
+    assert sem.status_code == 401 and "Conteúdo restrito" in sem.text and "cockpit restrito" not in sem.text
+    assert get(f"{caminho}dados.json").status_code == 401
+    assert get(f"/{slug}/").status_code == 200 and get(f"/{slug}/outra/").status_code == 200
+    # a lista de pastas do time segue pública (nomes das páginas), mas a da página restrita e o meta.json não
+    assert pg in get(f"/_pastas/{slug}/").text
+    for p in (f"/_pastas/{slug}/{pg}/", f"/{slug}/{pg}/meta.json"):
+        assert get(p).status_code == 401 and get(p).json() == {"erro": "restrito"}, p
+
+    # entra pela lista (o navegador manda a página; espaço e acento passam pelo gate)
+    e = requests.post(f"{ENTRA}/site/entrar", json={"idToken": idp(pessoa), "site": slug, "pagina": pg}, timeout=10)
+    assert e.status_code == 200, e.text
+    ck = cookie(e)
+    ok = get(caminho, ck)
+    assert ok.status_code == 200 and "cockpit restrito" in ok.text
+    assert get(f"{caminho}dados.json", ck).status_code == 200
+    assert get(caminho, ck[:-3] + "AAA").status_code == 401
+    # quem não está na lista (e não é do time) não entra
+    n = requests.post(f"{ENTRA}/site/entrar", json={"idToken": idp(f"zz.estranha{uid}@exemplo.com"), "site": slug, "pagina": pg}, timeout=10)
+    assert n.status_code == 403 and "Set-Cookie" not in n.headers
+
+    # desligar devolve a página ao público
+    requests.put(f"{ENTRA}/site/acesso", json={"time": slug, "pagina": pg, "ativo": False, "emails": [pessoa]}, headers=admin.h, timeout=10)
+    assert get(caminho).status_code == 200

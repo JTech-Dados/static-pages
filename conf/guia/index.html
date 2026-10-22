@@ -132,7 +132,7 @@
         <li>Cada time tem uma cota de espaço (padrão: 200 MB). A barra do menu do painel mostra quanto já foi usado.</li>
         <li>Ao estourar a cota, o painel recusa novos envios com um aviso. Apague arquivos antigos ou peça mais espaço a um admin.</li>
         <li>Prefira imagens comprimidas e evite colocar vídeos e bases grandes na página.</li>
-        <li>O que você apaga vai para a lixeira por 30 dias e um admin pode restaurar.</li>
+        <li>O que você apaga vai para a lixeira por 30 dias. Quem edita o time restaura pelo item <b>Lixeira</b> do menu: cada arquivo ou pasta apagada aparece numa linha, com a pasta de origem, quem apagou e quando.</li>
       </ul>
     </section>
 
@@ -149,7 +149,7 @@
         <tbody>
           <tr><td><b>Editor</b></td><td>Publica no time: envia, edita, renomeia, move e apaga arquivos da pasta do seu time. Só enxerga o próprio time.</td></tr>
           <tr><td><b>Leitor</b></td><td>Só consulta e baixa os arquivos do time. Não envia, edita, renomeia nem apaga. Serve para quem precisa acompanhar o que o time publicou.</td></tr>
-          <tr><td><b>Admin</b></td><td>Enxerga todos os times, gerencia pessoas, papéis, cotas e pedidos de acesso, e restaura da lixeira.</td></tr>
+          <tr><td><b>Admin</b></td><td>Enxerga todos os times, gerencia pessoas, papéis, cotas e pedidos de acesso, e restaura da lixeira de qualquer time.</td></tr>
         </tbody>
       </table>
       <p>Quem muda o papel de alguém é um admin, na tela <b>Acessos</b>, aba <b>Usuários</b>. O papel aparece ao lado do seu nome na barra superior do painel.</p>
@@ -157,12 +157,12 @@
 
     <section id="restrito">
       <h2>Páginas com acesso restrito</h2>
-      <p>Por padrão, qualquer pessoa que alcance o endereço abre a página. Se o conteúdo é restrito, admins e editores do time podem <b>restringir o acesso do time</b> a e-mails autorizados: no painel, menu <b>Acesso restrito</b>, marque a opção e informe os e-mails (um por linha). Quem não está na lista vê uma tela de entrada com o login Microsoft e não lê o conteúdo.</p>
+      <p>Por padrão, qualquer pessoa que alcance o endereço abre a página. Se o conteúdo é restrito, admins e editores do time podem <b>restringir o acesso</b> a e-mails autorizados, do time inteiro ou de uma página só: no painel, menu <b>Acesso restrito</b>, escolha em <b>Onde aplicar</b>, marque a opção e informe os e-mails (um por linha). Quem não está na lista vê uma tela de entrada com o login Microsoft e não lê o conteúdo.</p>
       <ul>
         <li><b>Quem entra sempre:</b> os e-mails da lista, os membros do time e os admins. Remover um e-mail vale na hora; a sessão dura 8 horas.</li>
-        <li><b>Por time, não por página:</b> a restrição vale para todas as páginas do time.</li>
+        <li><b>Time ou página:</b> restringir o time vale para todas as páginas dele. Restringir uma página (pasta do primeiro nível do time) deixa o time e as outras páginas públicos; a página restrita tem a lista própria, e os membros do time e os admins entram sempre.</li>
         <li class="nok" style="list-style:none;margin-left:-22px">O conteúdo restrito precisa ser <b>autocontido</b>: um HTML com imagens, estilos, scripts e dados <b>dentro do próprio arquivo</b>. Imagens, estilos e <code>fetch</code> de arquivos separados não carregam em páginas restritas (viram 401). Para um dashboard, embuta o JSON no HTML (<code>&lt;script type="application/json"&gt;</code>).</li>
-        <li>Na home aparece um cartão com cadeado e "Acesso restrito", sem título nem descrição. O <b>nome</b> do time continua visível.</li>
+        <li>Na home, o time restrito aparece como um cartão com cadeado e "Acesso restrito", sem título nem descrição (o <b>nome</b> do time continua visível). Uma página restrita aparece com cadeado dentro do grupo do time, só com o nome da pasta.</li>
         <li>Quem edita o time e os admins leem os arquivos pelo painel; quem tem acesso pode copiar e repassar o conteúdo. Dar acesso a um e-mail equivale a publicar para aquela pessoa.</li>
       </ul>
     </section>
@@ -180,6 +180,7 @@ JWT=$(curl -s -X POST "$BASE/admin/entra/api/sessao" -H 'Content-Type: applicati
       -d '{"token":"sp_..."}' | jq -r .jwt)
 curl -s -X POST "$BASE/admin/api/resources/relatorio-mensal/index.html?override=false" \
      -H "X-Auth: $JWT" -H 'Content-Type: text/html' --data-binary @relatorio.html</pre>
+      <p>Usa o Claude Code ou o Claude Desktop com terminal, dentro da rede da empresa? Na tela <b>Tokens de API</b> há o botão <b>Copiar prompt</b>: cole no chat, troque o token e peça a página. O Claude pergunta o nome da pasta e publica. No chat da web ele roda fora da rede e não alcança o Pages. O token vale como a sua conta: use um só para isso e revogue depois.</p>
       <p>Prefere Python? Baixe o <a href="publicar.py" download>publicar.py</a> (só a biblioteca padrão):</p>
       <pre>export PAGES_TOKEN=sp_...
 python3 publicar.py --url https://&lt;domínio&gt;/pages --pasta relatorio-mensal relatorio.html</pre>

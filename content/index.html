@@ -229,10 +229,11 @@
         listDir(parts).catch(() => ({ dirs: [], hasIndex: false })), loadMeta(parts),
       ]);
       if (listing.restrito) {
-        // só o 1º nível mostra o cartão; o conteúdo (nomes, títulos, descrições) não é revelado
-        return parts.length === 1
-          ? { name: parts[0], restrito: true, href: urlOf(parts), titulo: "Acesso restrito", descricao: "Entre com a sua conta Microsoft para ver as páginas deste time.", tag: "", ordem: 1000, children: [] }
-          : null;
+        // time restrito: só o cartão do 1º nível; o conteúdo (nomes, títulos, descrições) não é revelado.
+        // página restrita (2º nível): cartão com o nome da pasta e o cadeado; o que há dentro não aparece
+        if (parts.length === 1) return { name: parts[0], restrito: true, href: urlOf(parts), titulo: "Acesso restrito", descricao: "Entre com a sua conta Microsoft para ver as páginas deste time.", tag: "", ordem: 1000, children: [] };
+        if (parts.length === 2) return { name: parts[1], restrito: true, href: urlOf(parts), titulo: prettify(parts[1]), descricao: "Entre com a sua conta Microsoft para abrir esta página.", tag: "", ordem: 1000, children: [] };
+        return null;
       }
       if (meta.oculto === true) return null;
       const ok = listing.hasIndex;
@@ -308,7 +309,8 @@
       }
       body.append(title);
       if (item.descricao) body.append(el("div", "desc", item.descricao));
-      const seen = item.href ? visits[item.href] || 0 : 0;
+      let seen = 0;
+      if (item.href) { try { seen = visits[decodeURIComponent(item.href)] || 0; } catch { seen = visits[item.href] || 0; } }
       if (seen) body.append(el("div", "views", `${seen.toLocaleString("pt-BR")} ${seen === 1 ? "visita" : "visitas"} · 30 dias`));
 
       if (subs.length) {
@@ -419,7 +421,13 @@
           listDir([]),
           fetch(BASE + "/_visitas.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
         ]);
-        visits = (v && v.paginas) || {};
+        // as chaves vêm como caminho (o sp-visitas troca bytes fora do ASCII por %HH); a busca usa o caminho decodificado
+        visits = {};
+        for (const [k, n] of Object.entries((v && v.paginas) || {})) {
+          let chave = k;
+          try { chave = decodeURIComponent(k); } catch { /* mantém */ }
+          visits[chave] = (visits[chave] || 0) + n;
+        }
         const scanned = await Promise.all(top.map(async (d) => {
           const [node, team] = await Promise.all([scan([d.name]), loadTeam(d.name)]);
           return node ? { ...node, team } : null;

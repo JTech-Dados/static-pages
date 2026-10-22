@@ -22,6 +22,7 @@
 
 | Data | Entrega | Commit |
 |---|---|---|
+| 2026-10-22 | Painel sempre no tema claro; Lixeira no menu para editores (lista por item); prompt para o Claude nos tokens de API; restrição por página com lista própria; correção do acesso restrito com espaço/acento; "Alterado por" com nome para todos; contador de visitas com acento; barra do painel esquece a conta anterior | (este commit) |
 | 2026-10-23 | Tokens de API (tela, troca por sessão, script `publicar.py`), acesso restrito por time com login Microsoft (v1), "ver site ↗" na lista de arquivos, login com caminho de volta para a home | (este commit) |
 | 2026-10-22 | Login Microsoft (Entra ID) no painel com pedido de acesso e aprovação; aba Usuários (papel e time); cota por time que bloqueia upload (inclusive o tus da interface); espaço do time no menu; nomes curtos; guia "Como publicar" (`/_ajuda/`); histórico de acessos na Atividade; `SP_BASE` (prefixo público); painel conferido em 360 px | — |
 | 2026-10-21 | Lixeira, backup, atividade, visitas, modelo de time, testes E2E + CI | `b3849a6`, `7e2e6d8` |

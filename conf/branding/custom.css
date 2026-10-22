@@ -5,6 +5,8 @@
    máx. 600, um só raio de controle (6px), mono só p/ dados.
    ============================================================ */
 @import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap");
+/* só há tema claro: formulários e barras de rolagem também (o inject.js trava html.light) */
+:root { color-scheme: light; }
 
 :root {
   --ink: #171717;

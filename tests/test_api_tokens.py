@@ -171,6 +171,9 @@ def test_tela_tokens_de_api_cria_lista_e_revoga(page, admin, uid):
     expect(page.locator("#content .empty")).to_be_visible(timeout=15000)
     expect(page.locator("#uso")).to_be_visible()
     assert "/admin/entra/api/sessao" in page.inner_text("#exemplo")
+    prompt = page.inner_text("#prompt")
+    assert "/admin/entra/api/sessao" in prompt and "sp_COLE_AQUI_O_TOKEN" in prompt and "Pergunte o nome da pasta" in prompt
+    assert BASE in prompt   # endereço do ambiente já preenchido
 
     # cria: o token aparece uma vez, no formato sp_…
     page.click("#btn-new")

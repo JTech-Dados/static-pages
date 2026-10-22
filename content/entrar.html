@@ -68,6 +68,13 @@
       "use strict";
       const BASE = "__SP_BASE__";
       const TIME = "__TIME__";
+      // página = 1º nível depois do time (pode ter espaço e acento: vem decodificada da URL); o servidor valida
+      const PAGINA = (() => {
+        try {
+          const rest = location.pathname.slice((BASE + "/" + TIME + "/").length);
+          return decodeURIComponent(rest.split("/")[0] || "");
+        } catch { return ""; }
+      })();
       const ENTRA = BASE + "/admin/entra";
       const $ = (s) => document.getElementById(s);
       const say = (text, erro) => { const m = $("msg"); m.textContent = text; m.hidden = !text; m.classList.toggle("erro", Boolean(erro)); };
@@ -99,7 +106,7 @@
         try {
           const { idToken: tok, email } = await idToken();
           say("Conferindo o seu acesso…");
-          const r = await fetch(ENTRA + "/site/entrar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: tok, site: TIME }) });
+          const r = await fetch(ENTRA + "/site/entrar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: tok, site: TIME, pagina: PAGINA }) });
           if (r.status === 200) { say("Entrando…"); location.reload(); return; }
           if (r.status === 403) say(`Sua conta${email ? " (" + email + ")" : ""} não tem acesso a esta página. Peça ao time responsável.`, true);
           else if (r.status === 429) say("Muitas tentativas. Aguarde um minuto.", true);

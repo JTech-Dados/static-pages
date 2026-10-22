@@ -66,8 +66,9 @@ O **static-pages** é esse lugar. Quem publica usa o navegador, quem consome rec
 | 👥 | **Acessos e times** | cada time é uma pasta; membros só enxergam e editam a pasta do seu time; aba Usuários muda papel e time |
 | 🪪 | **Login Microsoft (Entra ID)** | opcional: membros entram com a conta Microsoft; quem não tem acesso pede e o admin aprova |
 | 📦 | **Cota por time** | espaço do time na barra do menu; upload acima da cota é recusado (413, mensagem em português) |
-| 🔒 | **Páginas restritas** | opcional: o time restringe as páginas a e-mails autorizados (login Microsoft); falha fechado |
+| 🔒 | **Páginas restritas** | opcional: o time (ou uma página só) restringe o acesso a e-mails autorizados (login Microsoft); falha fechado |
 | 🔑 | **Tokens de API** | token pessoal para automações publicarem HTML sem abrir o painel |
+| 🗑️ | **Lixeira** | admin e editores restauram o que apagaram, em lista por item, pelo menu do painel |
 | 🔗 | **"ver site ↗"** | na lista de arquivos do painel, abre a página publicada da pasta |
 | 📖 | **Guia "Como publicar"** | página `/_ajuda/` para quem publica (links relativos, sandbox, cota, visibilidade) |
 | ✍️ | **Autoria** | colunas "Time" e "Alterado por" na listagem do painel |
@@ -220,7 +221,7 @@ Membros são usuários do File Browser com o **e-mail como nome de usuário**; q
 
 ## 🔒 Páginas com acesso restrito
 
-Admin e editores de um time ligam, no painel (**Acesso restrito**), a restrição das páginas do time a e-mails autorizados (login Microsoft). Quem não está na lista vê uma tela de entrada e não lê o conteúdo; membros do time e admins entram sempre. A v1 protege a **navegação**: o conteúdo restrito precisa ser um HTML autocontido (assets e `fetch` de arquivos separados não carregam). Falha fechado: se o `sp-auth` cair, nada do time restrito é servido. Detalhes e limites em [ARCHITECTURE](docs/ARCHITECTURE.md) e `specs/2026-10-23-entra-por-site.md`.
+Admin e editores de um time ligam, no painel (**Acesso restrito**), a restrição a e-mails autorizados (login Microsoft), para o time inteiro ou para uma página só (**Onde aplicar**); a página restrita tem lista própria. Quem não está na lista vê uma tela de entrada e não lê o conteúdo; membros do time e admins entram sempre. A v1 protege a **navegação**: o conteúdo restrito precisa ser um HTML autocontido (assets e `fetch` de arquivos separados não carregam). Falha fechado: se o `sp-auth` cair, nada do time restrito é servido. Detalhes e limites em [ARCHITECTURE](docs/ARCHITECTURE.md) e `specs/2026-10-23-entra-por-site.md`.
 
 ## 🔑 Tokens de API (automações)
 

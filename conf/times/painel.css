@@ -203,3 +203,12 @@ pre.code { padding: 14px 16px; overflow-x: auto; border-radius: var(--r-sm); bac
 .card-restrito textarea { width: 100%; min-height: 160px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--field); color: var(--ink); font: 400 13.5px/1.6 var(--f-mono); resize: vertical; }
 .aviso-box { margin-top: 8px; padding: 18px 22px; border-radius: var(--r-core); background: var(--surface-2); color: var(--ink-2); }
 .aviso-box ul { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+.lixo-lista { list-style: none; padding: 0; display: grid; gap: 8px; }
+.lixo { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 8px 16px; padding: 14px 18px; background: var(--surface); border-radius: var(--r-core); box-shadow: var(--shadow); }
+.lixo-ico { font-size: 24px; color: var(--brand); }
+.lixo-txt { display: grid; min-width: 0; }
+.lixo-nome { font-weight: 500; overflow-wrap: anywhere; }
+.lixo-meta, .lixo-det { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.lixo-tam { color: var(--muted); white-space: nowrap; }
+.lixo-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 900px) { .lixo { grid-template-columns: auto minmax(0, 1fr); } .lixo-det, .lixo-tam, .lixo-acts { grid-column: 2; justify-content: flex-start; } }

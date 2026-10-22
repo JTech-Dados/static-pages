@@ -8,7 +8,7 @@ const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
-const { createApp, nomeCurto } = require("../conf/entra/sp-auth.js");
+const { createApp, createLixeira, nomeCurto } = require("../conf/entra/sp-auth.js");
 
 const TENANT = "11111111-2222-3333-4444-555555555555";
 const CLIENT = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -511,13 +511,13 @@ test("site restrito: entrada com ID token (lista, membro do time e admin; fora d
 
   const conv = await entrar("Convidada@Empresa.com");                       // na lista (caixa alta)
   assert.equal(conv.status, 200);
-  assert.match(conv.setCookie, /^sp_s_time-a=v1\./);
+  assert.match(conv.setCookie, /^sp_s_[0-9a-f]{16}=v2\./);
   assert.match(conv.setCookie, /HttpOnly/);
   assert.match(conv.setCookie, /Secure/);
   assert.match(conv.setCookie, /SameSite=Lax/);
   assert.match(conv.setCookie, /Path=\/pages\/time-a\//);
   assert.match(conv.setCookie, /Max-Age=28800/);
-  assert.ok(!JSON.stringify(conv.data).includes("v1."), "o cookie não vai no corpo");
+  assert.ok(!JSON.stringify(conv.data).includes("v2."), "o cookie não vai no corpo");
 
   assert.equal((await entrar("ana.silva@empresa.com")).status, 200);       // membro do time, fora da lista
   assert.equal((await entrar("chefe@empresa.com")).status, 200);           // admin
@@ -544,7 +544,7 @@ test("site restrito: o gate (cookie válido, adulterado, expirado, de outro time
   assert.equal((await gate(t, "/time-a/", "sp_s_time-a=lixo")).status, 401);
   assert.equal((await gate(t, "/", cookie)).status, 401);                                    // sem time na URI
   // URIs que o NGINX normalizaria de outro jeito são negadas, nunca reinterpretadas (sem desvio por "..", "//", "%")
-  for (const feio of ["/time-b/../time-a/", "/time-a/%2e%2e/", "//time-a/", "/./time-a/", "/time%2da/", "/time-b/..%2ftime-a/"]) {
+  for (const feio of ["/time-b/../time-a/", "/time-a/%2e%2e/", "//time-a/", "/./time-a/", "/time-b/..%2ftime-a/"]) {
     assert.equal((await gate(t, feio, cookie)).status, 401, feio);
   }
   assert.equal((await gate(t, "/time-a/x?y=../z", cookie)).status, 200);                    // query não conta
@@ -552,7 +552,7 @@ test("site restrito: o gate (cookie válido, adulterado, expirado, de outro time
   // cookie de um time não abre o outro (mesmo se o outro fosse restrito)
   const outro = await t.call("PUT", "/site/acesso", { time: "time-b", ativo: true, emails: [] }, { "X-Auth": jwtDe(7) });
   assert.equal(outro.status, 200);
-  assert.equal((await gate(t, "/time-b/", cookie.replace("sp_s_time-a", "sp_s_time-b"))).status, 401);
+  assert.equal((await gate(t, "/time-b/", cookie)).status, 401);
 
   // remover o e-mail da lista revoga na hora (o cookie continua válido, mas a lista é relida)
   await t.call("PUT", "/site/acesso", { time: "time-a", ativo: true, emails: [] }, { "X-Auth": jwtDe(6) });
@@ -568,7 +568,7 @@ test("site restrito: o gate (cookie válido, adulterado, expirado, de outro time
   t.close();
 });
 
-test("site restrito: falha fechado (lista corrompida, marcador sem lista) e time público passa", async () => {
+test("site restrito: falha fechado (lista corrompida, marcador sem lista, nada restrito)", async () => {
   const t = await setup();
   await ligaRestrito(t, ["convidada@empresa.com"]);
   const cookie = cookieDe(await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "convidada@empresa.com" }), site: "time-a" }));
@@ -580,8 +580,8 @@ test("site restrito: falha fechado (lista corrompida, marcador sem lista) e time
   assert.equal(membro, "");                                                                    // nem a entrada abre
   fs.rmSync(path.join(t.dir, "site-acesso.json"));
   assert.equal((await gate(t, "/time-a/", cookie)).status, 403);                             // marcador sem lista: nega
-  // time sem marcador: o gate não restringe
-  assert.equal((await gate(t, "/time-b/", "")).status, 200);
+  // nada restrito no que o gate entendeu: nega (falha fechado), nunca "passa"
+  assert.equal((await gate(t, "/time-b/", "")).status, 401);
   t.close();
 });
 
@@ -590,7 +590,7 @@ test("site restrito: sair apaga o cookie; o segredo é persistido em modo 600 e 
   await ligaRestrito(t, ["convidada@empresa.com"]);
   const cookie = cookieDe(await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "convidada@empresa.com" }), site: "time-a" }));
   const sair = await t.call("POST", "/site/sair", { site: "time-a" });
-  assert.match(sair.setCookie, /sp_s_time-a=;.*Max-Age=0/);
+  assert.match(sair.setCookie, /sp_s_[0-9a-f]{16}=;.*Max-Age=0/);
   const segredo = path.join(t.dir, "site-segredo");
   assert.equal(fs.statSync(segredo).mode & 0o777, 0o600);
   assert.ok(!fs.readFileSync(segredo, "utf8").includes(cookie.split("=")[1]));
@@ -617,3 +617,73 @@ test("site restrito: no boot, marcador de time que não existe mais é removido 
   app.close();
 });
 
+
+// ---------- lixeira ----------
+test("lixeira: lista por item, restringe ao time, restaura com nome ocupado e apaga de vez", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lixeira-"));
+  const put = (rel, txt) => { fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), txt); };
+  put("_lixeira/2026-10-22/100000-1/a/x.txt", "um");
+  put("_lixeira/2026-10-22/100001-2/b/y.txt", "dois");
+  put("_lixeira/2026-10-22/100002-3/a/sub/z.txt", "tres");
+  fs.writeFileSync(path.join(dir, "_lixeira/.registro"), [
+    "2026-10-22T10:00:00Z\tana\t/a/x.txt\t/_lixeira/2026-10-22/100000-1/a/x.txt",
+    "2026-10-22T10:00:01Z\tbia\t/b/y.txt\t/_lixeira/2026-10-22/100001-2/b/y.txt",
+    "2026-10-22T10:00:02Z\tana\t/a/sub\t/_lixeira/2026-10-22/100002-3/a/sub",
+    "2026-10-22T10:00:03Z\tana\t/a/../../etc/passwd\t/_lixeira/2026-10-22/100000-1/a/x.txt",   // caminho sujo é ignorado
+    "2026-10-22T10:00:04Z\tana\t/a/sumiu.txt\t/_lixeira/2026-10-22/100009-9/a/sumiu.txt",       // já não existe
+  ].join("\n") + "\n");
+  const lx = createLixeira(dir);
+  assert.deepEqual(lx.list("a", false).map((i) => i.nome), ["sub", "x.txt"]);           // mais recente primeiro; só o time a
+  assert.equal(lx.list("a", false)[0].tipo, "pasta");
+  assert.equal(lx.list("", true).length, 3);                                             // admin vê tudo
+  const x = lx.list("a", false)[1];
+  assert.equal(lx.find(x.id, "b", false), null);                                         // outro time não acha o item
+  put("a/x.txt", "ocupado");
+  assert.equal(lx.restore(lx.find(x.id, "a", false)), "/a/x (restaurado).txt");
+  assert.equal(fs.readFileSync(path.join(dir, "a/x (restaurado).txt"), "utf8"), "um");
+  assert.ok(!fs.existsSync(path.join(dir, "_lixeira/2026-10-22/100000-1")));          // lote vazio sumiu
+  const y = lx.list("", true).find((i) => i.nome === "y.txt");
+  lx.purge(lx.find(y.id, "", true));
+  assert.ok(!lx.list("", true).some((i) => i.nome === "y.txt"));
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("site restrito por página: lista própria, nome com espaço e acento, cookie por alvo", async () => {
+  const t = await setup();
+  const pg = "Teste Cockpit Cirúrgico";
+  fs.mkdirSync(path.join(t.dir, "srv", "time-a", pg), { recursive: true });
+  fs.mkdirSync(path.join(t.dir, "srv", "time-a", "outra"), { recursive: true });
+  const ed = { "X-Auth": jwtDe(6) };
+  const put = (body) => t.call("PUT", "/site/acesso", { time: "time-a", ...body }, ed);
+  assert.equal((await put({ pagina: "../x", ativo: true, emails: [] })).status, 400);
+  assert.equal((await put({ pagina: "nao-existe", ativo: true, emails: [] })).status, 404);
+  const ok = await put({ pagina: pg, ativo: true, emails: ["convidada@empresa.com"] });
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  assert.ok(fs.existsSync(path.join(t.dir, "restritos", "_p", "time-a", pg)), "marcador da página");
+  assert.ok(!fs.existsSync(path.join(t.dir, "restritos", "time-a")), "o time continua público");
+  assert.deepEqual(ok.data.paginas, [pg]);
+
+  const uri = `/time-a/${encodeURIComponent(pg)}/`;                      // %20 e %C3%BA na URL, como o navegador manda
+  const entrar = (email) => t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: email }), site: "time-a", pagina: pg });
+  const conv = cookieDe(await entrar("convidada@empresa.com"));
+  assert.match(conv, /^sp_s_[0-9a-f]{16}=v2\./);
+  assert.equal((await gate(t, uri, conv)).status, 200);                   // espaço e acento passam
+  assert.equal((await gate(t, uri + "index.html", conv)).status, 200);
+  assert.equal((await gate(t, uri)).status, 401);
+  assert.equal((await gate(t, "/time-a/outra/", conv)).status, 401);      // outra página não é restrita: o gate nega por não ter o que checar
+  assert.equal((await entrar("estranha@empresa.com")).status, 403);
+  assert.equal((await entrar("ana.silva@empresa.com")).status, 200);      // membro do time passa
+  assert.equal((await t.call("POST", "/site/entrar", { idToken: mint(), site: "time-a", pagina: "outra" })).status, 404);   // outra não é restrita
+  // formas que o NGINX normalizaria de outro jeito continuam negadas
+  for (const feio of [`/time-a/%2e%2e/${encodeURIComponent(pg)}/`, `/time-a/${encodeURIComponent(pg)}%2f..%2f`, `/time-a//${encodeURIComponent(pg)}/`, "/time-a/%ff/"]) {
+    assert.equal((await gate(t, feio, conv)).status, 401, feio);
+  }
+  // página restrita tem lista própria: quem só está na lista do time inteiro não entra
+  await ligaRestrito(t, ["so-do-time@empresa.com"]);
+  assert.equal((await gate(t, uri, cookieDe(await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "so-do-time@empresa.com" }), site: "time-a" })))).status, 401);
+  assert.equal((await t.call("POST", "/site/entrar", { idToken: mint({ preferred_username: "so-do-time@empresa.com" }), site: "time-a", pagina: pg })).status, 403);
+  // desligar a página remove o marcador (e a pasta _p/<time> vazia)
+  assert.equal((await put({ pagina: pg, ativo: false, emails: ["convidada@empresa.com"] })).status, 200);
+  assert.ok(!fs.existsSync(path.join(t.dir, "restritos", "_p", "time-a")));
+  t.close();
+});

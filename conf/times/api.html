@@ -27,6 +27,10 @@
       <i class="material-icons" aria-hidden="true">vpn_key</i>
       Tokens de API
     </a>
+    <a data-go="times/lixeira.html" href="#">
+      <i class="material-icons" aria-hidden="true">delete</i>
+      Lixeira
+    </a>
     <a data-go="settings/profile" href="#">
       <i class="material-icons" aria-hidden="true">settings_applications</i>
       Configurações
@@ -53,6 +57,10 @@
       <p class="hint">Troque o token por uma sessão e publique com a API do painel. O envio precisa informar o tamanho (<code>Content-Length</code>); o <code>curl --data-binary</code> já faz isso.</p>
       <pre class="code" id="exemplo"></pre>
       <div class="dlg-actions" style="justify-content:flex-start"><button class="btn secondary sm" type="button" id="copy-exemplo">Copiar exemplo</button></div>
+      <div class="section-title" style="margin-top:24px">Pedir ao Claude</div>
+      <p class="hint">Para quem usa o Claude Code ou o Claude Desktop com acesso a terminal <b>na rede da empresa</b>: cole o prompt abaixo e troque <code>sp_COLE_AQUI_O_TOKEN</code> pelo seu token. No chat da web o Claude roda fora da rede e não alcança o Pages. O token vale como a sua conta: use um token só para isso, com validade curta, e revogue depois. Se puder, guarde-o na variável <code>PAGES_TOKEN</code> em vez de colar no chat.</p>
+      <pre class="code" id="prompt" style="white-space:pre-wrap"></pre>
+      <div class="dlg-actions" style="justify-content:flex-start"><button class="btn secondary sm" type="button" id="copy-prompt">Copiar prompt</button></div>
       <p class="hint" style="margin-top:12px">Para atualizar uma página sem perder a versão anterior, apague o arquivo (vai para a lixeira por 30 dias) e publique de novo; <code>override=true</code> sobrescreve sem lixeira.</p>
     </section>
   </main>
@@ -149,6 +157,25 @@
       ].join("\n");
     }
 
+    function promptClaude() {
+      const base = location.origin + BASE;
+      return [
+        `Quero publicar uma página HTML no Pages (${base}).`,
+        ``,
+        `Antes de começar, confirme que você consegue executar comandos (curl ou Python) na minha máquina e que alcança esse endereço pela rede da empresa. Se estiver no chat da web, sem acesso à rede, diga isso e pare.`,
+        ``,
+        `Meu token de API: sp_COLE_AQUI_O_TOKEN (se a variável de ambiente PAGES_TOKEN existir, use a variável). Não repita o token nem a sessão nas respostas e não grave em arquivo.`,
+        ``,
+        `Passos:`,
+        `1. Pergunte o nome da pasta onde a página vai ficar (minúsculas, números e hífen, por exemplo relatorio-mensal). Não escolha o nome sozinho.`,
+        `2. Confirme qual arquivo HTML publicar, ou gere o HTML a partir do que eu descrever e me mostre antes de enviar.`,
+        `3. Troque o token por uma sessão: POST ${base}/admin/entra/api/sessao com o corpo {"token":"<token>"}. O campo jwt da resposta é a sessão.`,
+        `4. Publique: POST ${base}/admin/api/resources/<pasta>/index.html?override=false com os cabeçalhos X-Auth: <jwt> e Content-Type: text/html, e o arquivo como corpo. Use curl --data-binary @arquivo, para informar o tamanho (envio chunked recebe 411).`,
+        `5. Se responder 409, a pasta já existe: pergunte se devo atualizar. Para manter a versão anterior, apague o arquivo (DELETE no mesmo caminho, vai para a lixeira por 30 dias) e publique de novo.`,
+        `6. Me diga o endereço final da página: ${base}/<meu time>/<pasta>/.`,
+      ].join("\n");
+    }
+
     async function load() {
       const r = await req("/api/tokens");
       if (r.status === 401) return aviso("Sua sessão expirou. Entre de novo no painel.");
@@ -157,6 +184,7 @@
       $("#btn-new").hidden = false;
       $("#uso").hidden = false;
       $("#exemplo").textContent = exemploCurl();
+      $("#prompt").textContent = promptClaude();
       if (!lista.length) {
         $("#content").replaceChildren(el("div", "empty", "Você ainda não tem tokens. Crie um para usar numa automação."));
         return;
@@ -219,6 +247,9 @@
     };
     $("#copy-exemplo").onclick = async () => {
       try { await navigator.clipboard.writeText($("#exemplo").textContent); toast("Copiado."); } catch { toast("Não foi possível copiar.", true); }
+    };
+    $("#copy-prompt").onclick = async () => {
+      try { await navigator.clipboard.writeText($("#prompt").textContent); toast("Prompt copiado."); } catch { toast("Não foi possível copiar.", true); }
     };
     $("#logout").onclick = () => { localStorage.removeItem("jwt"); location.href = BASE + "/admin/login"; };
 

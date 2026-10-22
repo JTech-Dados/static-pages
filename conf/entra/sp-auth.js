@@ -78,6 +78,89 @@ function dirBytes(dir, maxEntries = 50000) {
   return total;
 }
 
+// ---------- lixeira ----------
+// O hook sp-lixeira copia o que vai ser apagado para /srv/_lixeira/<dia>/<lote>/<caminho original> e anota
+// uma linha em .registro (quando, quem, original, na_lixeira). Aqui o registro vira uma lista por item:
+// o nome do arquivo, a pasta de onde saiu, quem apagou e quando; as pastas de data/lote não aparecem.
+function createLixeira(srvDir, now = Date.now) {
+  const base = pathLib.join(srvDir, "_lixeira");
+  const registro = pathLib.join(base, ".registro");
+  const idDe = (naLixeira) => crypto.createHash("sha256").update(naLixeira).digest("hex").slice(0, 16);
+  // só caminhos limpos dentro de /srv (o registro é escrito pelo hook, mas nada vindo de arquivo é confiado)
+  const limpo = (p) => typeof p === "string" && p.startsWith("/") && !/(^|\/)\.\.?(\/|$)|\/\/|\0/.test(p);
+
+  function lerLinhas() {
+    try { return fs.readFileSync(registro, "utf8").split("\n").filter(Boolean); } catch { return []; }
+  }
+  function entradas() {
+    const out = [];
+    for (const linha of lerLinhas()) {
+      const [quando, quem, original, naLixeira] = linha.split("\t");
+      if (!limpo(original) || !limpo(naLixeira) || !naLixeira.startsWith("/_lixeira/") || original.length < 2) continue;
+      let st;
+      try { st = fs.lstatSync(pathLib.join(srvDir, naLixeira)); } catch { continue; }   // expirou ou já foi apagado
+      out.push({ linha, id: idDe(naLixeira), quando, quem: quem || "?", original, naLixeira, pasta: st.isDirectory() });
+    }
+    return out;
+  }
+  const grava = (linhas) => {
+    const tmp = registro + ".tmp";
+    fs.writeFileSync(tmp, linhas.length ? linhas.join("\n") + "\n" : "");
+    fs.renameSync(tmp, registro);
+  };
+  // sobe a partir da pasta do item apagando o que ficou vazio (subpastas, lote e dia) (senão a lixeira acumula pastas)
+  const podaVazias = (naLixeira) => {
+    const partes = naLixeira.split("/").filter(Boolean);   // _lixeira, dia, lote, ...
+    for (let n = partes.length - 1; n >= 2; n--) {
+      try { fs.rmdirSync(pathLib.join(srvDir, ...partes.slice(0, n))); } catch { break; }
+    }
+  };
+  const tira = (e) => grava(lerLinhas().filter((l) => l !== e.linha));
+
+  return {
+    // Itens visíveis: admin vê tudo; os demais, só o que saiu da pasta do próprio time (slug)
+    list(slug, admin) {
+      return entradas()
+        .filter((e) => admin || (slug && e.original.startsWith(`/${slug}/`)))
+        .reverse()
+        .slice(0, 500)
+        .map((e) => {
+          const abs = pathLib.join(srvDir, e.naLixeira);
+          let bytes = 0;
+          try { bytes = e.pasta ? dirBytes(abs) : fs.statSync(abs).size; } catch { /* sumiu */ }
+          const partes = e.original.split("/").filter(Boolean);
+          return {
+            id: e.id, nome: partes[partes.length - 1], pasta: "/" + partes.slice(0, -1).join("/"),
+            original: e.original, time: partes[0], quem: e.quem, quando: e.quando, tipo: e.pasta ? "pasta" : "arquivo", bytes,
+          };
+        });
+    },
+    find(id, slug, admin) {
+      return entradas().find((e) => e.id === id && (admin || (slug && e.original.startsWith(`/${slug}/`)))) || null;
+    },
+    // Devolve o item ao lugar de origem (recria a pasta de destino); se o nome já existir, ganha " (restaurado)"
+    restore(e) {
+      const destino = pathLib.join(srvDir, e.original);
+      if (!destino.startsWith(srvDir + pathLib.sep)) throw new HttpError(400, { erro: "caminho_invalido" });
+      fs.mkdirSync(pathLib.dirname(destino), { recursive: true });
+      let alvo = destino;
+      for (let n = 1; fs.existsSync(alvo); n++) {
+        const ext = pathLib.extname(destino);
+        alvo = destino.slice(0, destino.length - ext.length) + (n === 1 ? " (restaurado)" : ` (restaurado ${n})`) + ext;
+      }
+      fs.renameSync(pathLib.join(srvDir, e.naLixeira), alvo);
+      tira(e);
+      podaVazias(e.naLixeira);
+      return "/" + pathLib.relative(srvDir, alvo).split(pathLib.sep).join("/");
+    },
+    purge(e) {
+      fs.rmSync(pathLib.join(srvDir, e.naLixeira), { recursive: true, force: true });
+      tira(e);
+      podaVazias(e.naLixeira);
+    },
+  };
+}
+
 class HttpError extends Error {
   constructor(status, body) { super(body.erro || String(status)); this.status = status; this.body = body; }
 }
@@ -323,8 +406,14 @@ function createSiteAcesso(file, restritosDir, now) {
     mtime = st.mtimeMs;
     return cache;
   }
-  const marcador = (time) => pathLib.join(restritosDir, time);
-  const restrito = (time) => fs.existsSync(marcador(time));
+  // alvo = "time" (o time inteiro) ou "time/pagina" (uma pasta do 1º nível do time).
+  // Marcadores: <restritos>/<time> (arquivo) e <restritos>/_p/<time>/<pagina> (arquivo; "_p" não colide com
+  // time porque slug de time não começa com "_").
+  const marcador = (alvo) => {
+    const [t, pg] = String(alvo).split("/");
+    return pg === undefined ? pathLib.join(restritosDir, t) : pathLib.join(restritosDir, "_p", t, pg);
+  };
+  const restrito = (alvo) => fs.existsSync(marcador(alvo));
 
   function salvar(d) {
     const tmp = file + ".tmp";
@@ -335,16 +424,20 @@ function createSiteAcesso(file, restritosDir, now) {
 
   return {
     restrito,
-    // Quem está na lista de um time: null = lista ilegível (nega tudo); [] = sem lista
-    emails(time) {
+    // Quem está na lista do alvo: null = lista ilegível (nega tudo); [] = sem lista
+    emails(alvo) {
       const d = lista();
       if (d === null) return null;
-      const e = d[time] && Array.isArray(d[time].emails) ? d[time].emails : [];
+      const e = d[alvo] && Array.isArray(d[alvo].emails) ? d[alvo].emails : [];
       return e.map((x) => String(x).toLowerCase());
     },
-    get(time) {
+    get(alvo) {
       const d = lista();
-      return { ativo: restrito(time), emails: (d && d[time] && d[time].emails) || [], por: (d && d[time] && d[time].por) || null, em: (d && d[time] && d[time].em) || null };
+      return { ativo: restrito(alvo), emails: (d && d[alvo] && d[alvo].emails) || [], por: (d && d[alvo] && d[alvo].por) || null, em: (d && d[alvo] && d[alvo].em) || null };
+    },
+    // Páginas (pastas do 1º nível) restritas de um time
+    paginas(time) {
+      try { return fs.readdirSync(pathLib.join(restritosDir, "_p", time)); } catch { return []; }
     },
     // No boot: marcador de um time que não existe mais (pasta apagada) sai, para um time novo com o mesmo
     // nome não nascer restrito com a lista antiga. A lista guardada segue (o admin pode religar).
@@ -352,16 +445,35 @@ function createSiteAcesso(file, restritosDir, now) {
       let nomes = [];
       try { nomes = fs.readdirSync(restritosDir); } catch { return; }
       for (const n of nomes) {
+        if (n === "_p") continue;
         if (!fs.existsSync(pathLib.join(srvDir, n, ".time.json"))) { try { fs.unlinkSync(marcador(n)); } catch { /* já foi */ } }
+      }
+      // marcador de página cuja pasta não existe mais
+      let times = [];
+      try { times = fs.readdirSync(pathLib.join(restritosDir, "_p")); } catch { /* sem páginas restritas */ }
+      for (const t of times) {
+        let pgs = [];
+        try { pgs = fs.readdirSync(pathLib.join(restritosDir, "_p", t)); } catch { continue; }
+        for (const pg of pgs) {
+          let dir = false;
+          try { dir = fs.statSync(pathLib.join(srvDir, t, pg)).isDirectory(); } catch { /* sumiu */ }
+          if (!dir) { try { fs.unlinkSync(marcador(`${t}/${pg}`)); } catch { /* já foi */ } }
+        }
+        try { fs.rmdirSync(pathLib.join(restritosDir, "_p", t)); } catch { /* ainda tem marcador */ }
       }
     },
     // Grava a lista e só depois liga o marcador: o toggle só vale se o marcador foi gravado
-    set(time, ativo, emails, por) {
+    set(alvo, ativo, emails, por) {
       const d = lista() || {};
-      d[time] = { emails, por, em: new Date(now()).toISOString() };
+      d[alvo] = { emails, por, em: new Date(now()).toISOString() };
       salvar(d);
-      if (ativo) fs.writeFileSync(marcador(time), "", { mode: 0o644 });
-      else { try { fs.unlinkSync(marcador(time)); } catch { /* já desligado */ } }
+      if (ativo) {
+        fs.mkdirSync(pathLib.dirname(marcador(alvo)), { recursive: true, mode: 0o755 });
+        fs.writeFileSync(marcador(alvo), "", { mode: 0o644 });
+      } else {
+        try { fs.unlinkSync(marcador(alvo)); } catch { /* já desligado */ }
+        if (String(alvo).includes("/")) { try { fs.rmdirSync(pathLib.dirname(marcador(alvo))); } catch { /* ainda tem marcador */ } }
+      }
     },
   };
 }
@@ -453,6 +565,17 @@ function createApp(o) {
     return { slug: slugOk(slug) ? slug : "", used, total: cota * 1048576 };
   }
 
+  const lixeira = createLixeira(o.srvDir || "/srv", o.now);
+  // Quem pode mexer na lixeira: admin (tudo) e editor de um time (só o próprio); leitor não
+  async function lixeiraUser(req) {
+    const u = await userFromToken(req);
+    const admin = Boolean(u.perm && u.perm.admin);
+    const editor = Boolean(u.perm && (u.perm.create || u.perm.modify));
+    const slug = String(u.scope || "").replace(/^\.?\/+/, "").split("/")[0];
+    if (!admin && !(editor && slugOk(slug))) throw new HttpError(403, { erro: "sem_permissao" });
+    return { u, slug, admin };
+  }
+
   // Quem é o dono do token (id do JWT conferido na API do File Browser), ou 401
   async function userFromToken(req) {
     const token = req.headers["x-auth"];
@@ -498,10 +621,24 @@ function createApp(o) {
     const editor = Boolean(u.perm && (u.perm.create || u.perm.modify));
     if (!(admin || (editor && slugDoEscopo(u) === time))) throw new HttpError(403, { erro: "sem_permissao" });
   };
-  // lista ∪ membros do time ∪ admins; lista ilegível ou marcador sem lista nega tudo (falha fechado)
+  // Página = pasta do 1º nível do time. Nome vindo do cliente: tem de existir como pasta, sem "/", "\\" nem ponto inicial.
+  const paginaDe = (time, v) => {
+    const pg = String(v || "");
+    if (!pg || pg.length > 200 || /[\/\\\0]/.test(pg) || pg.startsWith(".")) throw new HttpError(400, { erro: "pagina_invalida" });
+    let dir = false;
+    try { dir = fs.statSync(pathLib.join(o.srvDir, time, pg)).isDirectory(); } catch { /* não existe */ }
+    if (!dir) throw new HttpError(404, { erro: "pagina_inexistente" });
+    return pg;
+  };
+  // a página que o navegador mandou pode ser um arquivo da raiz do time (ex.: index.html): vale o time
+  const paginaOuVazio = (time, v) => { try { return v ? paginaDe(time, v) : ""; } catch { return ""; } };
+  // Alvo da restrição: a página (se ela for restrita) ou o time. Página restrita tem lista própria.
+  const alvoEfetivo = (time, pagina) => (pagina && sites.restrito(`${time}/${pagina}`) ? `${time}/${pagina}` : time);
+  // lista do alvo ∪ membros do time ∪ admins; lista ilegível ou marcador sem lista nega tudo (falha fechado)
   // fresh (só na entrada, que tem limite por IP): relê os usuários antes de negar, para quem acabou de entrar no time
-  async function temAcesso(email, time, fresh) {
-    const lista = sites.emails(time);
+  async function temAcesso(email, alvo, fresh) {
+    const time = String(alvo).split("/")[0];
+    const lista = sites.emails(alvo);
     if (lista === null) return false;
     if (lista.includes(email)) return true;
     const acha = (us) => us.find((x) => x.username.toLowerCase() === email && x.username.includes("@"));
@@ -511,26 +648,29 @@ function createApp(o) {
     return Boolean(u.perm && u.perm.admin) || slugDoEscopo(u) === time;
   }
   const assinar = (dados) => crypto.createHmac("sha256", segredo).update(dados).digest("base64url");
-  function cookieSessao(time, email, apagar) {
-    const nome = `sp_s_${time.replace(/[^A-Za-z0-9_-]/g, "_")}`;
-    const attrs = `Path=${base}/${time}/; HttpOnly; Secure; SameSite=Lax`;
+  // um cookie por alvo (nome pelo hash: página pode ter espaço e acento); Path é sempre o do time, sem
+  // depender de como o navegador codifica o nome da página
+  const nomeCookie = (alvo) => `sp_s_${crypto.createHash("sha256").update(alvo).digest("hex").slice(0, 16)}`;
+  function cookieSessao(alvo, email, apagar) {
+    const nome = nomeCookie(alvo);
+    const attrs = `Path=${base}/${String(alvo).split("/")[0]}/; HttpOnly; Secure; SameSite=Lax`;
     if (apagar) return `${nome}=; ${attrs}; Max-Age=0`;
     const exp = Math.floor(o.now() / 1000) + SITE_SESSAO_S;
-    const corpo = Buffer.from(JSON.stringify({ e: email, t: time, x: exp })).toString("base64url");
-    return `${nome}=v1.${corpo}.${assinar("v1." + corpo)}; ${attrs}; Max-Age=${SITE_SESSAO_S}`;
+    const corpo = Buffer.from(JSON.stringify({ e: email, t: alvo, x: exp })).toString("base64url");
+    return `${nome}=v2.${corpo}.${assinar("v2." + corpo)}; ${attrs}; Max-Age=${SITE_SESSAO_S}`;
   }
-  // devolve o e-mail do cookie do time, ou null (ausente, adulterado, de outro time ou expirado)
-  function lerCookie(cabecalho, time) {
-    const nome = `sp_s_${time.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+  // devolve o e-mail do cookie do alvo, ou null (ausente, adulterado, de outro alvo ou expirado)
+  function lerCookie(cabecalho, alvo) {
+    const nome = nomeCookie(alvo);
     const par = String(cabecalho || "").split(";").map((x) => x.trim()).find((x) => x.startsWith(nome + "="));
     if (!par) return null;
     const [v, corpo, sig] = par.slice(nome.length + 1).split(".");
-    if (v !== "v1" || !corpo || !sig) return null;
-    const esperado = Buffer.from(assinar("v1." + corpo)), recebido = Buffer.from(sig);
+    if (v !== "v2" || !corpo || !sig) return null;
+    const esperado = Buffer.from(assinar("v2." + corpo)), recebido = Buffer.from(sig);
     if (esperado.length !== recebido.length || !crypto.timingSafeEqual(esperado, recebido)) return null;
     try {
       const d = JSON.parse(Buffer.from(corpo, "base64url").toString());
-      if (d.t !== time || !Number.isFinite(d.x) || d.x < Math.floor(o.now() / 1000)) return null;
+      if (d.t !== alvo || !Number.isFinite(d.x) || d.x < Math.floor(o.now() / 1000)) return null;
       return String(d.e || "").toLowerCase() || null;
     } catch { return null; }
   }
@@ -632,6 +772,64 @@ function createApp(o) {
       return { ok: true };
     },
 
+    // Quem alterou cada item de uma pasta (coluna "Alterado por"). O .autoria é dotfile e os membros têm
+    // "ocultar dotfiles" ligado, então a leitura passa pelo servidor, limitada ao escopo de quem pergunta.
+    // dir é relativo ao escopo do usuário. Pasta sem registro próprio herda o último autor de dentro dela.
+    "GET /autoria": async (req) => {
+      const u = await userFromToken(req);
+      const dir = String(new URL(req.url, "http://x").searchParams.get("dir") || "").replace(/^\/+|\/+$/g, "");
+      if (dir.split("/").some((x) => x === ".." || x === ".") || /[\0\\]/.test(dir)) throw new HttpError(400, { erro: "caminho_invalido" });
+      const escopo = String(u.scope || "/").replace(/^\.?\/+|\/+$/g, "");
+      const abs = pathLib.join(o.srvDir, escopo, dir);
+      if (abs !== o.srvDir && !abs.startsWith(o.srvDir + pathLib.sep)) throw new HttpError(400, { erro: "caminho_invalido" });
+      const quem = (email) => nomeCurto(nomes.all()[String(email).toLowerCase()] || "", email);
+      const ler = (arq) => {
+        const m = new Map();
+        let txt = "";
+        try { txt = fs.readFileSync(arq, "utf8"); } catch { return m; }
+        for (const linha of txt.split("\n")) {
+          const [nome, user, em, evento] = linha.split("\t");
+          if (!nome || !user) continue;
+          if (evento === "after_delete" || evento === "renamed") m.delete(nome);
+          else m.set(nome, { user, em });
+        }
+        return m;
+      };
+      const out = {};
+      for (const [nome, r] of ler(pathLib.join(abs, ".autoria"))) out[nome] = { por: quem(r.user), email: r.user, quando: r.em };
+      let itens = [];
+      try { itens = fs.readdirSync(abs, { withFileTypes: true }); } catch { /* pasta inexistente */ }
+      for (const it of itens) {
+        if (!it.isDirectory() || out[it.name] || it.name.startsWith("_") || it.name.startsWith(".")) continue;
+        let melhor = null;
+        for (const r of ler(pathLib.join(abs, it.name, ".autoria")).values()) if (!melhor || String(r.em) > String(melhor.em)) melhor = r;
+        if (melhor) out[it.name] = { por: quem(melhor.user), email: melhor.user, quando: melhor.em };
+      }
+      return out;
+    },
+
+    // ----- lixeira: lista, restaura e apaga de vez (admin: tudo; editor: só o que saiu do próprio time) -----
+    "GET /lixeira": async (req) => {
+      const { u, slug, admin } = await lixeiraUser(req);
+      return lixeira.list(slug, admin).map((i) => ({ ...i, quemNome: nomeCurto(nomes.all()[String(i.quem).toLowerCase()] || "", i.quem) }));
+    },
+    "POST /lixeira/restaurar": async (req) => {
+      const { u, slug, admin } = await lixeiraUser(req);
+      const e = lixeira.find(String((await readBody(req)).id || ""), slug, admin);
+      if (!e) throw new HttpError(404, { erro: "nao_encontrado" });
+      const destino = lixeira.restore(e);
+      audit(u.username, "lixeira_restaurada", `restaurou ${e.original}${destino !== e.original ? ` como ${destino}` : ""}`);
+      return { ok: true, destino };
+    },
+    "POST /lixeira/apagar": async (req) => {
+      const { u, slug, admin } = await lixeiraUser(req);
+      const e = lixeira.find(String((await readBody(req)).id || ""), slug, admin);
+      if (!e) throw new HttpError(404, { erro: "nao_encontrado" });
+      lixeira.purge(e);
+      audit(u.username, "lixeira_apagada", `apagou de vez ${e.original}`);
+      return { ok: true };
+    },
+
     // ----- tokens de API pessoais (automações) -----
     // Cria um token para quem está logado (conta de e-mail; o admin local, sem @, só entra por senha).
     // O token aparece UMA vez; em disco fica só o hash.
@@ -691,9 +889,11 @@ function createApp(o) {
     // Quem pode editar a lista de um time: admin, ou editor do próprio time (leitor não).
     "GET /site/acesso": async (req) => {
       const u = await userFromToken(req);
-      const time = timeDe(new URL(req.url, "http://x").searchParams.get("time"));
+      const q = new URL(req.url, "http://x").searchParams;
+      const time = timeDe(q.get("time"));
       podeEditarLista(u, time);
-      return { ...sites.get(time), dominios };
+      const pagina = q.get("pagina") ? paginaDe(time, q.get("pagina")) : "";
+      return { ...sites.get(pagina ? `${time}/${pagina}` : time), dominios, paginas: sites.paginas(time) };
     },
 
     "PUT /site/acesso": async (req) => {
@@ -701,6 +901,7 @@ function createApp(o) {
       const b = await readBody(req);
       const time = timeDe(b.time);
       podeEditarLista(u, time);
+      const alvo = b.pagina ? `${time}/${paginaDe(time, b.pagina)}` : time;
       if (typeof b.ativo !== "boolean" || !Array.isArray(b.emails)) throw new HttpError(400, { erro: "pedido_invalido" });
       const emails = [...new Set(b.emails.map((x) => String(x).trim().toLowerCase()).filter(Boolean))];
       if (emails.length > MAX_EMAILS_SITE) throw new HttpError(400, { erro: "emails_demais" });
@@ -708,15 +909,15 @@ function createApp(o) {
         if (!/^[^\s@]{1,64}@[^\s@]{1,190}$/.test(e)) throw new HttpError(400, { erro: "email_invalido", email: e.slice(0, 80) });
         if (dominios.length && !dominios.includes(e.split("@")[1])) throw new HttpError(400, { erro: "dominio_nao_permitido", email: e.slice(0, 80) });
       }
-      const antes = sites.get(time);
+      const antes = sites.get(alvo);
       const eraAtivo = antes.ativo;
-      try { sites.set(time, b.ativo, emails, u.username); } catch { throw new HttpError(502, { erro: "falha_ao_gravar" }); }
-      if (b.ativo && !sites.restrito(time)) throw new HttpError(502, { erro: "falha_ao_ligar" });   // só vale com o marcador gravado
+      try { sites.set(alvo, b.ativo, emails, u.username); } catch { throw new HttpError(502, { erro: "falha_ao_gravar" }); }
+      if (b.ativo && !sites.restrito(alvo)) throw new HttpError(502, { erro: "falha_ao_ligar" });   // só vale com o marcador gravado
       const add = emails.filter((e) => !antes.emails.map((x) => x.toLowerCase()).includes(e));
       const rem = antes.emails.map((x) => x.toLowerCase()).filter((e) => !emails.includes(e));
-      if (add.length || rem.length) audit(u.username, "acesso_site_lista", `/${time}: +${add.join(",") || "-"} -${rem.join(",") || "-"}`);
-      if (b.ativo !== eraAtivo) audit(u.username, b.ativo ? "acesso_site_ligado" : "acesso_site_desligado", `/${time}`);
-      return { ok: true, ...sites.get(time) };
+      if (add.length || rem.length) audit(u.username, "acesso_site_lista", `/${alvo}: +${add.join(",") || "-"} -${rem.join(",") || "-"}`);
+      if (b.ativo !== eraAtivo) audit(u.username, b.ativo ? "acesso_site_ligado" : "acesso_site_desligado", `/${alvo}`);
+      return { ok: true, ...sites.get(alvo), paginas: sites.paginas(time) };
     },
 
     // Entrada num site restrito: valida o ID token (sem trocar senha de ninguém) e, se a conta tem acesso,
@@ -725,40 +926,52 @@ function createApp(o) {
       const b = await readBody(req);
       const { email, nome } = await verify(b.idToken);
       const time = timeDe(b.site);
-      if (!sites.restrito(time)) throw new HttpError(404, { erro: "nao_restrito" });
-      if (!(await temAcesso(email, time, true))) {
-        audit(email, "acesso_site_negado", `/${time}`);
+      const alvo = alvoEfetivo(time, paginaOuVazio(time, b.pagina));
+      if (!sites.restrito(alvo)) throw new HttpError(404, { erro: "nao_restrito" });
+      if (!(await temAcesso(email, alvo, true))) {
+        audit(email, "acesso_site_negado", `/${alvo}`);
         throw new HttpError(403, { erro: "sem_acesso" });
       }
       nomes.set(email, nome);
-      audit(email, "acesso_site_entrada", `/${time}`);
-      return { ok: true, __cookie: cookieSessao(time, email) };
+      audit(email, "acesso_site_entrada", `/${alvo}`);
+      return { ok: true, alvo, __cookie: cookieSessao(alvo, email) };
     },
 
-    // Chamado pelo NGINX (auth_request) em cada requisição a um time restrito. 200 = passa; 401 = sem sessão
-    // válida (mostra a página de entrada); 403 = sessão válida de quem perdeu o acesso. Falha fechado.
+    // Chamado pelo NGINX (auth_request) em cada requisição a um time ou página restritos. 200 = passa;
+    // 401 = sem sessão válida (mostra a página de entrada); 403 = sessão válida de quem perdeu o acesso.
+    // Falha fechado: URI estranha ou nada restrito no que o gate entendeu => 401 (nunca "passa").
     "GET /site/auth": async (req) => {
-      // O time sai da URI original (X-Orig-Uri = $request_uri do NGINX; o auth_request não leva variável na
-      // URI da subrequisição). Para não divergir da normalização do NGINX, só vale caminho já limpo:
-      // sem "..", "." , "//" nem "%": qualquer outra forma é negada (falha fechado), nunca reinterpretada.
+      // Time e página saem da URI original (X-Orig-Uri = $request_uri; o auth_request não leva variável na
+      // URI da subrequisição). O NGINX decide pelo $uri (decodificado e normalizado); aqui decodifica-se igual
+      // e qualquer forma que possa divergir (".." ou "." após decodificar, "//", "\\", NUL, %2f/%5c) é negada.
       let uri = String(req.headers["x-orig-uri"] || "").split("?")[0].split("#")[0];
       if (base && uri.startsWith(base + "/")) uri = uri.slice(base.length);
-      const m = uri.match(/^\/([A-Za-z0-9][A-Za-z0-9._-]*)(?:\/|$)/);
-      const time = m && !/(^|\/)\.{1,2}(\/|$)|\/\/|%/.test(uri) && slugOk(m[1]) ? m[1] : "";
+      let seg;
+      try {
+        if (/%(2f|5c|00)/i.test(uri)) throw new Error("x");
+        const dec = decodeURIComponent(uri);
+        if (!dec.startsWith("/") || /\/\/|\\|\0/.test(dec)) throw new Error("x");
+        seg = dec.split("/").slice(1);
+        if (seg.some((x) => x === ".." || x === ".")) throw new Error("x");
+      } catch { throw new HttpError(401, { erro: "sem_sessao" }); }
+      const time = seg[0] && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(seg[0]) && slugOk(seg[0]) ? seg[0] : "";
       if (!time) throw new HttpError(401, { erro: "sem_sessao" });
-      if (!sites.restrito(time)) return { ok: true };                  // não restrito: o gate não devia ter sido chamado
-      const email = lerCookie(req.headers.cookie, time);
+      const pagina = seg.length >= 2 ? seg[1] : "";   // 2º segmento (pasta ou arquivo; só pasta tem marcador)
+      const alvo = alvoEfetivo(time, pagina);
+      if (!sites.restrito(alvo)) throw new HttpError(401, { erro: "sem_sessao" });
+      const email = lerCookie(req.headers.cookie, alvo);
       if (!email) throw new HttpError(401, { erro: "sem_sessao" });
-      if (!(await temAcesso(email, time))) throw new HttpError(403, { erro: "sem_acesso" });
+      if (!(await temAcesso(email, alvo))) throw new HttpError(403, { erro: "sem_acesso" });
       return { ok: true };
     },
 
     "POST /site/sair": async (req) => {
-      const time = timeDe((await readBody(req)).site);
-      return { ok: true, __cookie: cookieSessao(time, "", true) };
+      const b = await readBody(req);
+      const time = timeDe(b.site);
+      const alvo = alvoEfetivo(time, paginaOuVazio(time, b.pagina));
+      return { ok: true, __cookie: cookieSessao(alvo, "", true) };
     },
 
-    // O painel registra aqui as ações de gestão feitas na tela (promover, mover, remover...), em nome do admin
     "POST /evento": async (req) => {
       const admin = await userFromToken(req);
       if (!(admin.perm && admin.perm.admin)) throw new HttpError(403, { erro: "so_admin" });
@@ -863,4 +1076,4 @@ function main() {
 const enabled = (t, c) => Boolean(t && c);
 
 if (require.main === module) main();
-module.exports = { createApp, createVerifier, createPedidos, createApiTokens, nomeCurto };
+module.exports = { createApp, createLixeira, createVerifier, createPedidos, createApiTokens, nomeCurto };

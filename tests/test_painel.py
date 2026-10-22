@@ -6,6 +6,8 @@ from playwright.sync_api import expect
 
 from conftest import ADMIN_PASS, ADMIN_USER, BASE, BASE_PATH, Api, in_container, login, login_token
 
+ENTRA = f"{BASE}/admin/entra"
+
 
 def card_do_time(pg, nome):
     return pg.locator("article.card").filter(has=pg.locator("h3", has_text=nome))
@@ -69,7 +71,7 @@ def test_time_completo_pela_tela(page, browser, admin, uid):
     assert usage["total"] == 1048576 and 0 < usage["used"] < 1048576, usage
     expect(m.locator("nav .credits, nav .progress-bar + *").first).to_be_visible()
     assert m.locator("nav [data-sp-times]").count() == 0
-    assert m.locator(".sp-team, .sp-who").count() == 0
+    assert m.locator(".sp-team").count() == 0   # a coluna Time é só do admin; "Alterado por" todos veem
     m.goto(f"{BASE}/admin/times")
     expect(m.locator("#app")).to_contain_text("Só administradores")
     ctx.close()
@@ -286,3 +288,115 @@ def test_ver_site_ao_lado_do_nome_na_lista(page, admin, uid, browser):
     login_token(ap, admin.token)
     expect(ap.locator(f'#listing .item[aria-label="{slug}"] .sp-ver')).to_have_attribute("href", f"{BASE}/{slug}/", timeout=15000)
     ap.close()
+
+
+def test_painel_fica_claro_mesmo_com_o_sistema_em_modo_escuro(browser):
+    """O File Browser liga html.dark sozinho com prefers-color-scheme: dark; o painel só tem tema claro."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 860}, color_scheme="dark")
+    pg = ctx.new_page()
+    pg.errors = []
+    pg.on("dialog", lambda d: d.accept())
+    login(pg, ADMIN_USER, ADMIN_PASS)
+    pg.wait_for_timeout(800)
+    assert pg.evaluate("document.documentElement.className") == "light"
+    assert pg.evaluate("getComputedStyle(document.documentElement).colorScheme") == "light"
+    ctx.close()
+
+
+def test_lixeira_do_editor_lista_por_item_e_restaura(page, admin, uid):
+    """O editor vê na Lixeira só o que saiu do próprio time, um item por linha (sem pastas de data e lote), e restaura."""
+    a, b = f"zz-lxa-{uid}", f"zz-lxb-{uid}"
+    pessoa, senha, leitor_nome = f"zz.lxed{uid}", "SenhaTeste123456", f"zz.lxle{uid}"
+    for slug in (a, b):
+        admin.mkdir(f"/{slug}")
+        admin.write(f"/{slug}/.time.json", json.dumps({"nome": slug}))
+        admin.mkdir(f"/{slug}/relatorio")
+        admin.write(f"/{slug}/relatorio/index.html", f"<h1>{slug}</h1>")
+        admin.write(f"/{slug}/solto.txt", "x")
+    assert admin.add_user(pessoa, senha, f"/{a}").ok
+    assert admin.add_user(leitor_nome, senha, f"/{a}", leitor=True).ok
+    editor = Api(pessoa, senha)
+    # o editor apaga um arquivo; o admin apaga um arquivo do outro time
+    assert editor.req("DELETE", "/resources/solto.txt").ok
+    assert admin.req("DELETE", f"/resources/{b}/solto.txt").ok
+
+    lista = requests.get(f"{ENTRA}/lixeira", headers=editor.h, timeout=10).json()
+    assert [i["nome"] for i in lista] == ["solto.txt"] and lista[0]["original"] == f"/{a}/solto.txt"
+    assert lista[0]["pasta"] == f"/{a}" and lista[0]["tipo"] == "arquivo" and lista[0]["quem"] == pessoa
+    # leitor não mexe na lixeira
+    assert requests.get(f"{ENTRA}/lixeira", headers=Api(leitor_nome, senha).h, timeout=10).status_code == 403
+    # id de outro time não é aceito pelo editor
+    outro = [i for i in requests.get(f"{ENTRA}/lixeira", headers=admin.h, timeout=10).json() if i["original"] == f"/{b}/solto.txt"][0]
+    assert requests.post(f"{ENTRA}/lixeira/restaurar", json={"id": outro["id"]}, headers=editor.h, timeout=10).status_code == 404
+
+    # pela tela: menu, uma linha com o nome e a pasta de origem, restaurar
+    login_token(page, editor.token)
+    page.goto(f"{BASE}/admin/files/")
+    page.locator("nav a[data-sp-lixeira]").click()
+    page.wait_for_url("**/times/lixeira.html")
+    linha = page.locator(".lixo", has_text="solto.txt")
+    expect(linha).to_be_visible(timeout=15000)
+    assert page.locator(".lixo").count() == 1
+    expect(linha).to_contain_text("pasta do time")
+    linha.get_by_role("button", name="Restaurar").click()
+    expect(page.locator(".empty")).to_be_visible(timeout=15000)
+    assert editor.req("GET", "/raw/solto.txt").text == "x"
+    # a pasta de data/lote some quando esvazia; o outro time continua na lixeira do admin
+    assert any(i["original"] == f"/{b}/solto.txt" for i in requests.get(f"{ENTRA}/lixeira", headers=admin.h, timeout=10).json())
+
+    # restaurar com o nome ocupado cria "(restaurado)"; apagar de vez remove do registro
+    assert editor.req("DELETE", "/resources/solto.txt").ok
+    editor.write("/solto.txt", "novo")
+    item = requests.get(f"{ENTRA}/lixeira", headers=editor.h, timeout=10).json()[0]
+    r = requests.post(f"{ENTRA}/lixeira/restaurar", json={"id": item["id"]}, headers=editor.h, timeout=10).json()
+    assert r["destino"] == f"/{a}/solto (restaurado).txt"
+    assert editor.req("GET", "/raw/solto (restaurado).txt").text == "x"
+    assert editor.req("DELETE", "/resources/solto (restaurado).txt").ok
+    item = requests.get(f"{ENTRA}/lixeira", headers=editor.h, timeout=10).json()[0]
+    assert requests.post(f"{ENTRA}/lixeira/apagar", json={"id": item["id"]}, headers=editor.h, timeout=10).ok
+    assert requests.get(f"{ENTRA}/lixeira", headers=editor.h, timeout=10).json() == []
+
+
+def test_editor_ve_alterado_por_com_nome_e_nas_pastas(page, admin, uid):
+    """Quem edita um time vê "Alterado por" (nome, não só admin), inclusive nas pastas, e não vê a coluna Time."""
+    slug, pessoa, senha = f"zz-aut-{uid}", f"zz.autor{uid}", "SenhaTeste123456"
+    admin.mkdir(f"/{slug}")
+    admin.write(f"/{slug}/.time.json", json.dumps({"nome": slug}))
+    assert admin.add_user(pessoa, senha, f"/{slug}").ok
+    editor = Api(pessoa, senha)
+    editor.mkdir("/pagina-nova")
+    editor.write("/pagina-nova/index.html", "<h1>x</h1>")
+    editor.write("/solto.html", "<h1>y</h1>")
+
+    # o servidor devolve o autor por arquivo e, para a pasta, o último autor de dentro
+    r = requests.get(f"{ENTRA}/autoria?dir=", headers=editor.h, timeout=10).json()
+    assert r["solto.html"]["email"] == pessoa and r["pagina-nova"]["email"] == pessoa
+    # nunca sai do escopo do time
+    assert requests.get(f"{ENTRA}/autoria?dir=../", headers=editor.h, timeout=10).status_code == 400
+    assert requests.get(f"{ENTRA}/autoria?dir=", timeout=10).status_code == 401
+
+    login_token(page, editor.token)
+    page.goto(f"{BASE}/admin/files/")
+    linha_arquivo = page.locator('#listing .item[aria-label="solto.html"]')
+    linha_pasta = page.locator('#listing .item[aria-label="pagina-nova"]')
+    expect(linha_arquivo.locator("p.sp-who")).to_have_text(pessoa, timeout=15000)
+    expect(linha_pasta.locator("p.sp-who")).to_have_text(pessoa)
+    assert page.locator("#listing .item.header p.sp-team").count() == 0
+    expect(page.locator("#listing .item.header p.sp-who")).to_contain_text("Alterado por")
+
+
+def test_barra_troca_o_nome_ao_trocar_de_conta_sem_recarregar(page, admin, uid):
+    """O painel é uma SPA: sair e entrar com outra conta não recarrega a página; o nome da conta anterior não pode ficar."""
+    slug, pessoa, senha = f"zz-troca-{uid}", f"zz.troca{uid}", "SenhaTeste123456"
+    admin.mkdir(f"/{slug}")
+    admin.write(f"/{slug}/.time.json", json.dumps({"nome": "Time Troca"}))
+    assert admin.add_user(pessoa, senha, f"/{slug}").ok
+    outro = Api(pessoa, senha)
+
+    login_token(page, admin.token)
+    expect(page.locator("[data-sp-chip] .sp-chip-user")).to_have_text(ADMIN_USER, timeout=15000)
+    # troca a sessão sem recarregar o documento e provoca um ciclo do inject.js
+    page.evaluate("t => localStorage.setItem('jwt', t)", outro.token)
+    page.evaluate("document.body.append(document.createElement('i'))")
+    expect(page.locator("[data-sp-chip] .sp-chip-user")).to_have_text(pessoa, timeout=15000)
+    expect(page.locator("[data-sp-chip] .sp-chip-role")).to_have_text("Editor")

@@ -27,6 +27,10 @@
       <i class="material-icons" aria-hidden="true">lock</i>
       Acesso restrito
     </a>
+    <a data-go="times/lixeira.html" href="#">
+      <i class="material-icons" aria-hidden="true">delete</i>
+      Lixeira
+    </a>
     <a data-go="settings/profile" href="#">
       <i class="material-icons" aria-hidden="true">settings_applications</i>
       Configurações
@@ -52,10 +56,14 @@
         <select class="full" id="time" aria-label="Time"></select>
       </label>
 
+      <label id="linha-pagina">Onde aplicar
+        <select class="full" id="pagina" aria-label="Onde aplicar"></select>
+      </label>
+
       <div class="card-restrito">
         <label class="liga">
           <input type="checkbox" id="ativo">
-          <span><b>Restringir o acesso</b> às páginas do time <b id="time-nome"></b></span>
+          <span><b>Restringir o acesso</b> <span id="alvo-texto"></span></span>
         </label>
 
         <label for="emails" class="rotulo">E-mails autorizados <span class="hint-inline">um por linha; além deles, entram sempre os membros do time e os admins</span></label>
@@ -123,13 +131,36 @@
     const aviso = (texto) => { $("#painel").hidden = true; const a = $("#aviso"); a.textContent = texto; a.hidden = false; };
     const sessao = () => { try { return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).user || {}; } catch { return {}; } };
 
-    let atual = "";
-    async function carregar(time) {
+    let atual = "", atualPagina = "";
+    // pastas do 1º nível do time (as páginas); time restrito por inteiro não lista (401): fica só "o time inteiro"
+    async function paginasDoTime(time) {
+      try {
+        const r = await fetch(`${BASE}/_pastas/${encodeURIComponent(time)}/`, { cache: "no-cache" });
+        if (!r.ok) return [];
+        return (await r.json()).filter((e) => e.type === "directory" && !/^[_.]/.test(e.name)).map((e) => e.name).sort((a, b) => a.localeCompare(b, "pt-BR"));
+      } catch { return []; }
+    }
+    async function montarPaginas(time, restritas, escolhida) {
+      const nomes = await paginasDoTime(time);
+      for (const n of restritas) if (!nomes.includes(n)) nomes.push(n);
+      const sel = $("#pagina");
+      sel.replaceChildren(new Option("O time inteiro (todas as páginas)", ""), ...nomes.map((n) => new Option(restritas.includes(n) ? `${n} (restrita)` : n, n)));
+      sel.value = nomes.includes(escolhida) ? escolhida : "";
+      atualPagina = sel.value;
+    }
+    async function carregar(time, pagina = "", remontar = true) {
       atual = time;
       const nome = $("#time").selectedOptions[0];
-      $("#time-nome").textContent = nome ? nome.textContent : time;
-      const r = await req("/site/acesso?time=" + encodeURIComponent(time));
+      const nomeTime = nome ? nome.textContent : time;
+      const q = "/site/acesso?time=" + encodeURIComponent(time) + (pagina ? "&pagina=" + encodeURIComponent(pagina) : "");
+      const r = await req(q);
       if (r.status !== 200) return toast("Não foi possível carregar o acesso deste time.", true);
+      if (remontar) await montarPaginas(time, r.data.paginas || [], pagina);
+      atualPagina = pagina;
+      const alvo = $("#alvo-texto");
+      alvo.replaceChildren();
+      if (pagina) { alvo.append("à página ", Object.assign(document.createElement("b"), { textContent: pagina }), " do time ", Object.assign(document.createElement("b"), { textContent: nomeTime })); }
+      else alvo.append("às páginas do time ", Object.assign(document.createElement("b"), { textContent: nomeTime }));
       $("#ativo").checked = Boolean(r.data.ativo);
       $("#emails").value = (r.data.emails || []).join("\n");
       const d = $("#dominios");
@@ -138,10 +169,11 @@
     }
 
     $("#time").onchange = () => carregar($("#time").value);
+    $("#pagina").onchange = () => carregar(atual, $("#pagina").value, false);
     $("#salvar").onclick = async () => {
       const emails = $("#emails").value.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
-      const r = await req("/site/acesso", { method: "PUT", body: JSON.stringify({ time: atual, ativo: $("#ativo").checked, emails }) });
-      if (r.status === 200) { toast($("#ativo").checked ? "Acesso restrito salvo." : "Restrição desligada: as páginas voltam a ser públicas."); carregar(atual); return; }
+      const r = await req("/site/acesso", { method: "PUT", body: JSON.stringify({ time: atual, pagina: atualPagina, ativo: $("#ativo").checked, emails }) });
+      if (r.status === 200) { toast($("#ativo").checked ? "Acesso restrito salvo." : "Restrição desligada: as páginas voltam a ser públicas."); carregar(atual, atualPagina); return; }
       const e = r.data.erro;
       toast(e === "email_invalido" ? `E-mail inválido: ${r.data.email}` : e === "dominio_nao_permitido" ? `Domínio não permitido: ${r.data.email}`
         : e === "emails_demais" ? "Lista grande demais (máximo de 200 e-mails)." : e === "sem_permissao" ? "Você não pode alterar este time."

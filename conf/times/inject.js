@@ -6,6 +6,7 @@
 //      de acesso pendentes (login Microsoft)
 //   1b. Item "Tokens de API" no menu (contas de e-mail, com o login Microsoft ligado)
 //   1c. Item "Acesso restrito" no menu (admin e editores de um time, com o login Microsoft ligado)
+//   1d. Item "Lixeira" no menu (admin e editores); abrir a pasta _lixeira leva à tela da lixeira
 //   8. "ver site ↗" ao lado do nome das pastas que são página e do index.html (abre a página publicada)
 //   0. Na barra superior: quem está logado, o time e o papel (Admin/Editor),
 //      e, para o admin, um aviso amarelo com os pedidos pendentes
@@ -14,14 +15,27 @@
 //        "Alterado por" último usuário que enviou/editou/renomeou,
 //                       lido de <pasta>/.autoria (gravado pelo hook
 //                       sp-autoria). Data e hora no tooltip.
-//      Só para admins: membros ficam com "ocultar dotfiles" ligado
-//      (não podem ler nem apagar .autoria/.time.json do time).
+//      Todos veem "Alterado por" (nome curto; o e-mail fica no tooltip); só o admin vê "Time".
+//      Membros ficam com "ocultar dotfiles" ligado (não leem nem apagam .autoria/.time.json do time),
+//      então o autor vem de GET entra/autoria, que lê o .autoria no servidor dentro do escopo de quem pergunta.
+//      Pasta sem registro próprio mostra o último autor de dentro dela.
+//
+//   9. Força o tema claro (html.light), mesmo com o sistema do usuário em modo escuro
 //
 // O File Browser é uma SPA: menu e lista são recriados ao navegar,
 // então um MutationObserver reaplica tudo (de forma idempotente).
 // ============================================================
 (function () {
   "use strict";
+
+  // O painel só tem tema claro: o File Browser liga o tema escuro sozinho quando o sistema do usuário
+  // está em modo escuro (html.dark), e as telas ficavam metade escuras, metade claras. Fixa o claro.
+  const raiz = document.documentElement;
+  const forcaClaro = () => {
+    if (raiz.classList.contains("dark") || !raiz.classList.contains("light")) { raiz.classList.remove("dark"); raiz.classList.add("light"); }
+  };
+  forcaClaro();
+  new MutationObserver(forcaClaro).observe(raiz, { attributes: true, attributeFilter: ["class"] });
 
   // Prefixo público do app (ex.: "/pages"); vazio na raiz. O painel vive
   // em <prefixo>/admin/, então o prefixo é o que vem antes de "/admin".
@@ -132,6 +146,35 @@
     settings.parentNode.insertBefore(link, settings);
   }
 
+  // ---------- 1d. menu "Lixeira": admin e editores (quem pode restaurar); a pasta _lixeira crua vira a tela ----------
+  function addLixeiraMenuItem(s) {
+    const nav = document.querySelector("nav");
+    if (!nav || nav.querySelector("[data-sp-lixeira]") || !me) return;
+    const perm = (s.user && s.user.perm) || {};
+    if (!(s.admin || ((perm.create || perm.modify) && meTeam))) return;
+    const settings = Array.from(nav.querySelectorAll(".action")).find((b) =>
+      /settings/.test((b.querySelector("i") || {}).textContent || ""));
+    if (!settings) return;
+    const link = document.createElement("a");
+    link.className = "action";
+    link.href = BASE + "/admin/times/lixeira.html";
+    link.dataset.spLixeira = "";
+    link.title = "Lixeira";
+    link.setAttribute("aria-label", "Lixeira");
+    const icon = document.createElement("i");
+    icon.className = "material-icons";
+    icon.textContent = "delete";
+    const label = document.createElement("span");
+    label.textContent = "Lixeira";
+    link.append(icon, label);
+    settings.parentNode.insertBefore(link, settings);
+  }
+  // a pasta _lixeira (datas e lotes) não é para navegar: leva à tela da lixeira
+  function lixeiraCrua() {
+    const p = currentPath();
+    if (p !== null && /^_lixeira(\/|$)/.test(p)) location.replace(BASE + "/admin/times/lixeira.html");
+  }
+
   // ---------- 0. barra superior: quem sou, time, papel, pedidos pendentes ----------
   let me = null;            // usuário logado (GET entra/me): nome, papel, time
   let meTeam = null;        // nome do time do membro
@@ -146,8 +189,13 @@
   // O File Browser esconde o escopo (time) de quem consulta a si mesmo; o sp-auth responde
   // depois de conferir o token. Se não responder, a barra mostra só o papel.
   let meBusy = null;
+  let meToken = null;       // sessão (JWT) a que "me" pertence
   function loadMe(s) {
+    // o painel é uma SPA: sair e entrar com outra conta não recarrega esta página, e o nome da conta anterior
+    // ficava na barra (ex.: "admin" com o papel de Editor). Trocou a sessão: esquece quem era.
+    if (me && meToken !== s.token) { me = null; meTeam = null; meSlug = null; teams = null; dirCache.clear(); entraCfg = null; }
     if (me || !s.user) return Promise.resolve();
+    meToken = s.token;
     if (!meBusy) {
       meBusy = fetch(BASE + "/admin/entra/me", { headers: { "X-Auth": s.token }, cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
@@ -226,24 +274,14 @@
     return map;
   }
 
+  // Quem alterou cada item: o servidor lê o .autoria (membros não enxergam dotfiles) e devolve o nome curto
   async function loadAuthors(s, path) {
     const hit = dirCache.get(path);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.map;
     const map = new Map();
     try {
-      const base = path ? enc(path) + "/" : "";
-      // confere na listagem antes de ler, para não gerar 404 no console
-      const dir = await (await fetch(`${API}/resources/${base}`, { headers: { "X-Auth": s.token } })).json();
-      const exists = (dir.items || []).some((i) => !i.isDir && i.name === ".autoria");
-      const r = exists ? await fetch(`${API}/raw/${base}.autoria`, { headers: { "X-Auth": s.token }, cache: "no-cache" }) : null;
-      if (r && r.ok) {
-        for (const line of (await r.text()).split("\n")) {
-          const [name, user, at, event] = line.split("\t");
-          if (!name || !user) continue;
-          if (event === "after_delete" || event === "renamed") map.delete(name);
-          else map.set(name, { user, at });
-        }
-      }
+      const r = await fetch(`${BASE}/admin/entra/autoria?dir=${encodeURIComponent(path)}`, { headers: { "X-Auth": s.token }, cache: "no-cache" });
+      if (r.ok) for (const [name, a] of Object.entries(await r.json())) map.set(name, { user: a.por || a.email, email: a.email, at: a.quando });
     } catch (_) { /* sem autoria */ }
     dirCache.set(path, { at: Date.now(), map });
     return map;
@@ -282,26 +320,30 @@
   async function annotate(s) {
     const listing = document.querySelector("#listing.list");
     const path = currentPath();
-    if (!listing || path === null || busy || !s.admin) return;
+    if (!listing || path === null || busy || !s.user) return;
     busy = true;
     try {
-      const [authors, teamMap] = await Promise.all([loadAuthors(s, path), loadTeams(s)]);
-      listing.classList.add("sp-cols", "sp-cols-team");
-      header(listing, "sp-team", "Time");
+      // admin vê as colunas Time e Alterado por; quem é de um time só precisa de Alterado por (o time é o dele)
+      const [authors, teamMap] = await Promise.all([loadAuthors(s, path), s.admin ? loadTeams(s) : Promise.resolve(new Map())]);
+      listing.classList.add("sp-cols");
+      listing.classList.toggle("sp-cols-team", Boolean(s.admin));
+      if (s.admin) header(listing, "sp-team", "Time");
       header(listing, "sp-who", "Alterado por");
 
       const top = path.split("/")[0];
       for (const row of listing.querySelectorAll(".item:not(.header)")) {
         const name = row.getAttribute("aria-label") || "";
-        const team = teamMap.get(path ? top : name) || "";
-        const pt = cell(row, "sp-team");
-        if (pt && pt.textContent !== (team || "-")) pt.textContent = team || "-";
+        if (s.admin) {
+          const team = teamMap.get(path ? top : name) || "";
+          const pt = cell(row, "sp-team");
+          if (pt && pt.textContent !== (team || "-")) pt.textContent = team || "-";
+        }
         const a = authors.get(name);
         const pw = cell(row, "sp-who");
         if (pw) {
           const text = a ? a.user : "-";
           if (pw.textContent !== text) pw.textContent = text;
-          pw.title = a ? `${a.user} · ${fmtDate(a.at)}` : "";
+          pw.title = a ? `${a.email || a.user} · ${fmtDate(a.at)}` : "";
         }
       }
     } finally {
@@ -445,10 +487,11 @@
       fixLoginTexts();
       fixUnits();
       fixHelp();
+      lixeiraCrua();
       const s = session();
       if (!s) return;
       addMenuItem(s);
-      loadMe(s).then(() => { addWhoChip(s); addApiMenuItem(s); addRestritoMenuItem(s); addSiteLinks(s, meSlug); });
+      loadMe(s).then(() => { addWhoChip(s); addApiMenuItem(s); addRestritoMenuItem(s); addLixeiraMenuItem(s); addSiteLinks(s, meSlug); });
       refreshPending(s);
       annotate(s);
     }, 120);

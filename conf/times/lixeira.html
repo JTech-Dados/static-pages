@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Static Pages</title>
+  <link rel="icon" href="../static/img/icons/favicon-32x32.png" type="image/png">
+  <link rel="stylesheet" href="painel.css">
+</head>
+<body>
+  <header>
+    <a class="logo" data-go="files/" aria-label="Arquivos"><img src="../static/img/logo.svg" alt=""></a>
+    <span class="spacer"></span>
+  </header>
+
+  <nav class="side" aria-label="Menu do painel">
+    <a data-go="files/" href="#">
+      <i class="material-icons" aria-hidden="true">folder</i>
+      Arquivos
+    </a>
+    <hr>
+    <a data-go="times" href="#" id="nav-acessos" hidden>
+      <i class="material-icons" aria-hidden="true">groups</i>
+      Acessos
+    </a>
+    <a data-go="times/api.html" href="#">
+      <i class="material-icons" aria-hidden="true">vpn_key</i>
+      Tokens de API
+    </a>
+    <a data-go="times/lixeira.html" href="#" aria-current="page">
+      <i class="material-icons" aria-hidden="true">delete</i>
+      Lixeira
+    </a>
+    <a data-go="settings/profile" href="#">
+      <i class="material-icons" aria-hidden="true">settings_applications</i>
+      Configurações
+    </a>
+    <button type="button" id="logout">
+      <i class="material-icons" aria-hidden="true">exit_to_app</i>
+      Sair
+    </button>
+  </nav>
+
+  <main id="app">
+    <section class="intro page-head">
+      <div>
+        <h2>Lixeira</h2>
+        <p id="sub">Tudo o que você apaga no painel fica aqui por 30 dias e pode ser restaurado ao lugar de origem.</p>
+      </div>
+    </section>
+
+    <div id="content"><div class="skeleton"></div></div>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // Lixeira do painel: lista os itens apagados (um por linha, sem as pastas de data e lote) e restaura
+    // ou apaga de vez. Usa a sessão do painel (localStorage "jwt") e <prefixo>/admin/entra/lixeira*.
+    const BASE = location.pathname.replace(/\/admin(\/.*)?$/, "");
+    const ENTRA = BASE + "/admin/entra";
+    const $ = (s) => document.querySelector(s);
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const token = localStorage.getItem("jwt");
+
+    document.querySelectorAll("[data-go]").forEach((a) => { a.href = BASE + "/admin/" + a.dataset.go; });
+
+    (async function loadPanelIcons() {
+      try {
+        const html = await (await fetch(BASE + "/admin/", { cache: "force-cache" })).text();
+        const href = (html.match(/href="([^"]+\/assets\/index-[^"]+\.css)"/) || [])[1];
+        if (!href) return;
+        const css = await (await fetch(href, { cache: "force-cache" })).text();
+        const face = (css.match(/@font-face\{[^}]*Material Icons[^}]*\}/) || [])[0];
+        if (!face) return;
+        const base = href.slice(0, href.lastIndexOf("/") + 1);
+        const style = document.createElement("style");
+        style.textContent = face.replace(/url\(\.\//g, `url(${base}`);
+        document.head.append(style);
+      } catch { /* sem ícones, o menu continua com os textos */ }
+    })();
+
+    function toast(msg, isError = false) {
+      const t = $("#toast");
+      t.textContent = msg;
+      t.className = "show" + (isError ? " error" : "");
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => (t.className = ""), 3200);
+    }
+
+    const req = async (path, opts = {}) => {
+      const r = await fetch(ENTRA + path, { ...opts, headers: { "X-Auth": token, "Content-Type": "application/json", ...(opts.headers || {}) } });
+      let data = {};
+      try { data = await r.json(); } catch { /* sem corpo */ }
+      return { status: r.status, data };
+    };
+
+    const aviso = (texto) => $("#content").replaceChildren(el("div", "notice", texto));
+
+    function tamanho(b) {
+      if (!b) return "0 B";
+      const u = ["B", "KB", "MB", "GB"];
+      let i = 0, v = b;
+      while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+      return `${v < 10 && i ? v.toFixed(1).replace(".", ",") : Math.round(v)} ${u[i]}`;
+    }
+    function quando(iso) {
+      const d = new Date(iso);
+      if (isNaN(d)) return "";
+      const min = Math.round((Date.now() - d) / 60000);
+      if (min < 1) return "agora há pouco";
+      if (min < 60) return `há ${min} min`;
+      if (min < 1440) return `há ${Math.round(min / 60)} h`;
+      const dias = Math.round(min / 1440);
+      return dias === 1 ? "ontem" : `há ${dias} dias`;
+    }
+
+    let admin = false;
+
+    function linha(i) {
+      const li = el("li", "lixo");
+      li.append(el("i", "material-icons lixo-ico", i.tipo === "pasta" ? "folder" : "description"));
+      const txt = el("div", "lixo-txt");
+      txt.append(el("b", "lixo-nome", i.nome));
+      // admin vê o caminho completo; editor vê a partir da pasta do time
+      const resto = i.pasta.replace(/^\/[^/]+/, "");
+      const onde = admin ? (i.pasta === "/" ? "raiz" : i.pasta) : (resto || "pasta do time");
+      txt.append(el("span", "lixo-meta", `em ${onde}`));
+      li.append(txt);
+      li.append(el("span", "lixo-det", `${i.quemNome || i.quem} · ${quando(i.quando)}`));
+      li.append(el("span", "lixo-tam mono", i.tipo === "pasta" ? `pasta · ${tamanho(i.bytes)}` : tamanho(i.bytes)));
+      const acts = el("div", "lixo-acts");
+      const rest = el("button", "btn secondary sm", "Restaurar");
+      rest.type = "button";
+      rest.onclick = async () => {
+        rest.disabled = true;
+        const r = await req("/lixeira/restaurar", { method: "POST", body: JSON.stringify({ id: i.id }) });
+        if (r.status !== 200) { rest.disabled = false; return toast("Não foi possível restaurar.", true); }
+        toast(`Restaurado em ${r.data.destino}`);
+        load();
+      };
+      const del = el("button", "btn danger sm", "Apagar de vez");
+      del.type = "button";
+      del.onclick = async () => {
+        if (!confirm(`Apagar definitivamente "${i.nome}"? Isso não pode ser desfeito.`)) return;
+        const r = await req("/lixeira/apagar", { method: "POST", body: JSON.stringify({ id: i.id }) });
+        if (r.status !== 200) return toast("Não foi possível apagar.", true);
+        toast("Apagado definitivamente.");
+        load();
+      };
+      acts.append(rest, del);
+      li.append(acts);
+      return li;
+    }
+
+    async function load() {
+      const r = await req("/lixeira");
+      if (r.status === 401) return aviso("Sua sessão expirou. Entre de novo no painel.");
+      if (r.status === 403) return aviso("Seu papel não permite restaurar nem apagar itens. Fale com o editor do time.");
+      if (r.status !== 200) return aviso("Não foi possível carregar a lixeira.");
+      const itens = r.data;
+      $("#sub").textContent = itens.length
+        ? `${itens.length} ${itens.length === 1 ? "item" : "itens"}. Apagados somem após 30 dias.`
+        : "Tudo o que você apaga no painel fica aqui por 30 dias e pode ser restaurado ao lugar de origem.";
+      if (!itens.length) return $("#content").replaceChildren(el("div", "empty", "A lixeira está vazia. O que for apagado no painel aparece aqui para ser restaurado."));
+      const ul = el("ul", "lixo-lista");
+      for (const i of itens) ul.append(linha(i));
+      $("#content").replaceChildren(ul);
+    }
+
+    $("#logout").onclick = () => { localStorage.removeItem("jwt"); location.href = BASE + "/admin/login"; };
+
+    (async function init() {
+      if (!token) return aviso("Entre no painel para ver a lixeira.");
+      const m = await req("/me");
+      if (m.status !== 200) return aviso("Sua sessão expirou. Entre de novo no painel.");
+      admin = Boolean(m.data.admin);
+      if (admin) $("#nav-acessos").hidden = false;
+      load();
+    })();
+  </script>
+</body>
+</html>
