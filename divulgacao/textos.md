@@ -1,26 +1,27 @@
 # LinkedIn
 
-Eu queria só um lugar para jogar um HTML e ter uma URL. Virou um container.
+Deploy de dashboard HTML em segundos, sem SSH e sem pipeline.
 
-NGINX serve o site, File Browser edita os arquivos pelo navegador, e a home monta o menu sozinha: criou uma pasta, ela vira card.
+Montei uma ferramenta para isso: você exporta o dashboard em HTML, arrasta no navegador e ganha uma URL. Roda em um container Docker.
 
-O que mais ensinou foi rodar de verdade: 4 bugs que a leitura do código não mostrava. Um era uma regex do NGINX roubando os assets do painel.
+Bastidor: cada time só enxerga a própria pasta, o que for apagado fica 30 dias na lixeira, e dá para restringir uma página a e-mails autorizados com login Microsoft.
 
-Você testa rodando ou confia na revisão?
+Como você publica seus dashboards hoje?
 
-#Docker #DevOps #NGINX
+#Dashboard #Docker #DevOps
+
+Primeiro comentário: link do repositório.
 
 # Instagram
 
-Joga um HTML numa pasta → vira página no ar 🐳
+Dashboard HTML no ar em segundos 🚀
 
-✓ painel para editar pelo navegador
-✓ menu da home montado sozinho
-✓ site isolado do painel
-✓ healthcheck e reinício automático
+Exporta, arrasta no navegador e ganha uma URL. Sem SSH, sem pipeline.
 
-No código parecia tudo certo. Rodando, apareceram 4 bugs.
+✓ cada time na sua pasta
+✓ página restrita por e-mail
+✓ lixeira de 30 dias
 
-Arrasta pro lado → antes/depois, fluxo e pilares.
+Arrasta pro lado pra ver o passo a passo. Link na bio.
 
-#docker #devops #nginx #selfhosted #programacao
+#dashboard #docker #devops #powerbi #dados

@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <b>Publique e edite páginas HTML pelo navegador. Um container, pronto para VPS.</b><br>
+  <b>Deploy de dashboard HTML em segundos: arraste o arquivo no navegador e ganhe uma URL. Um container, pronto para VPS.</b><br>
   NGINX serve o site em <code>/</code> · File Browser edita em <code>/admin</code> · times, lixeira, auditoria e visitas incluídos.
 </p>
 
@@ -68,16 +68,15 @@ O **static-pages** é esse lugar. Quem publica usa o navegador, quem consome rec
 | 📦 | **Cota por time** | espaço do time na barra do menu; upload acima da cota é recusado (413, mensagem em português) |
 | 🔒 | **Páginas restritas** | opcional: o time (ou uma página só) restringe o acesso a e-mails autorizados (login Microsoft); falha fechado |
 | 🔑 | **Tokens de API** | token pessoal para automações publicarem HTML sem abrir o painel |
-| 🗑️ | **Lixeira** | admin e editores restauram o que apagaram, em lista por item, pelo menu do painel |
+| 🗑️ | **Lixeira** | nada apagado some de vez: admin e editores restauram em 1 clique, por item, por 30 dias |
 | 🔗 | **"ver site ↗"** | na lista de arquivos do painel, abre a página publicada da pasta |
 | 📖 | **Guia "Como publicar"** | página `/_ajuda/` para quem publica (links relativos, sandbox, cota, visibilidade) |
 | ✍️ | **Autoria** | colunas "Time" e "Alterado por" na listagem do painel |
-| 🗑️ | **Lixeira** | nada apagado some de vez: restaura em 1 clique por 30 dias |
 | 📜 | **Atividade** | histórico de envios, edições, exclusões e de acessos (logins, pedidos, papéis, cota), com filtros (só admin) |
 | 📈 | **Visitas** | acessos por página e por time nos últimos 30 dias |
 | 💾 | **Backup diário** | `tar.gz` dos dados, mantém os últimos 7 |
 | 🔒 | **Segurança** | site isolado do painel (CSP sandbox), rate limit no login, dotfiles bloqueados, cadastro público desligado |
-| ✅ | **Testes E2E + CI** | 22 testes E2E (pytest + Playwright) e 15 unitários do login Microsoft a cada push |
+| ✅ | **Testes E2E + CI** | 50 testes E2E (pytest + Playwright) e 29 unitários do login Microsoft a cada push |
 
 ## 🚀 Início rápido
 
@@ -172,7 +171,7 @@ Detalhes de rotas, volumes e fluxos: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.
 | Path traversal | NGINX normaliza o caminho; testado com `../`, `%2e%2e` e afins |
 | Conteúdo de upload injetando HTML na home | nomes e `meta.json` entram só via `textContent` |
 
-> ⚠️ O site é **público** para quem tem a URL: os times controlam **quem edita**, não quem vê. Veja o [Roadmap](#️-roadmap).
+> ⚠️ O site é **público** para quem tem a URL: os times controlam **quem edita**. Quem **vê** só é limitado nas páginas de time com [acesso restrito](#-páginas-com-acesso-restrito) (v1). Veja o [Roadmap](#️-roadmap).
 
 Política de reporte: **[SECURITY.md](SECURITY.md)** · Regras inegociáveis: **[docs/RULES.md](docs/RULES.md)**.
 
@@ -331,7 +330,7 @@ Os testes cobrem login Microsoft (com um Entra de teste), cota, rotas, headers, 
 <details>
 <summary><b>Quem tem o link consegue ver qualquer página?</b></summary>
 
-Sim. Os times controlam **quem edita**. Login para **ver** (por time, com a conta corporativa) está no roadmap.
+Sim, salvo nas páginas de um time com [acesso restrito](#-páginas-com-acesso-restrito): aí só entra quem está na lista de e-mails (login Microsoft). Fora isso, os times controlam **quem edita**.
 </details>
 
 <details>
@@ -364,7 +363,7 @@ Backlog vivo com prioridade e critério de pronto: **[docs/TASKS.md](docs/TASKS.
 
 - [ ] Backup fora da VPS
 - [ ] Imagem publicada no GHCR (deploy sem build)
-- [ ] Login de leitura por site (Entra ID), com desenho em `specs/`
+- [ ] Acesso restrito, modo A: assets e `fetch` com cookie (hoje a v1 protege a navegação e exige HTML autocontido)
 - [ ] Painel em subdomínio próprio
 
 ## 🤝 Contribuindo
